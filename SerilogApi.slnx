@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="DemoApi/DemoApi.csproj" Id="a4023c9a-56ab-484d-b6e4-4d0bae3e563e" />
   <Project Path="LevelApi/LevelApi.csproj" Id="94ced29f-c814-4ed3-ad46-7430b2b05910" />
   <Project Path="QueryApi/QueryApi.csproj" Id="71f72064-0474-4920-bff0-9cfdfde28017" />
 </Solution>
