@@ -14,16 +14,16 @@ public static class EndpointExtensions
     {
         var grp = routeBuilder.MapGroup("/serilog").RequireAuthorization(policy);
 
-        grp.MapGet("/levels", async (ILogLevelOverrides levelStore) =>
+        grp.MapGet("/levels", async (ILogLevelOverrides overrides) =>
         {
-            var levels = await levelStore.GetLevelsAsync();
+            var levels = await overrides.GetAsync();
             var dto = levels.Select(l => new LogLevelDto(l.Key, l.Value.Level.ToString(), l.Value.ExpiresUtc)).ToArray();
             return Results.Ok(dto);
         });
 
-        grp.MapPut("/debug/{category:alpha}", async (ILogLevelOverrides levelStore, string? category) =>
+        grp.MapPut("/debug/{category:alpha}", async (ILogLevelOverrides overrides, string? category) =>
         {            
-            await levelStore.SetLevelAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(10));
+            await overrides.SetAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(10));
         });        
     }
 }

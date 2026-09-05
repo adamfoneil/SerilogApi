@@ -24,7 +24,7 @@ public class SerilogLevelMonitor(
         {
             try
             {
-                var levels = await _levelStore.GetLevelsAsync();
+                var levels = await _levelStore.GetAsync();
                 var now = DateTime.UtcNow;
 
                 // Process all levels from the store
