@@ -1,6 +1,6 @@
 ﻿using Serilog.Events;
 
-namespace SerilogApi;
+namespace SerilogLevelApi;
 
 /// <summary>
 /// describes how to read and write log level changes across horizontally-scaled instances of an app

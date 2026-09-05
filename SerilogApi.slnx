@@ -1,3 +1,4 @@
 <Solution>
-  <Project Path="SerilogApi/SerilogApi.csproj" />
+  <Project Path="LevelApi/LevelApi.csproj" Id="94ced29f-c814-4ed3-ad46-7430b2b05910" />
+  <Project Path="QueryApi/QueryApi.csproj" Id="71f72064-0474-4920-bff0-9cfdfde28017" />
 </Solution>

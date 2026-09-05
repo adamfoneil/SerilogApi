@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace SerilogApi;
+namespace SerilogLevelApi;
 
 /// <summary>
 /// add as hosted service in your application
