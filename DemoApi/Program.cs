@@ -7,13 +7,12 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using SerilogLevelApi;
-using SerilogLevelApi.MySql;
 
 var builder = WebApplication.CreateBuilder(args);
 var database = await DemoDatabaseConnection.CreateAsync(builder.Configuration);
 var mySqlLogSink = new MySqlLogSink(database.ConnectionString);
 var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
-var logLevelOverrides = new MySqlLogLevelOverrides(database.ConnectionString);
+//var logLevelOverrides = new MySqlLogLevelOverrides(database.ConnectionString);
 
 var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
     .UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString))
@@ -23,11 +22,11 @@ await using (var db = new DemoDbContext(dbContextOptions))
 {
     await db.Database.MigrateAsync();
 }
-await logLevelOverrides.InitializeAsync();
+//await logLevelOverrides.InitializeAsync();
 
 builder.Services.AddSingleton(database);
 builder.Services.AddSingleton(levelSwitch);
-builder.Services.AddSingleton<ILogLevelOverrides>(logLevelOverrides);
+//builder.Services.AddSingleton<ILogLevelOverrides>(logLevelOverrides);
 builder.Services.AddHostedService<SerilogLevelMonitor>();
 builder.Services.AddDbContext<DemoDbContext>(options =>
     options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)));

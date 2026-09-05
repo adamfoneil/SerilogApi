@@ -1,19 +1,14 @@
-using MySqlConnector;
+using Microsoft.EntityFrameworkCore;
 using Serilog.Events;
 
 namespace SerilogLevelApi.MySql;
 
-public sealed class MySqlLogLevelOverrides : ILogLevelOverrides
+public sealed class MySqlLogLevelOverrides<TDbContext>(IDbContextFactory<TDbContext> dbFactory) : ILogLevelOverrides
+    where TDbContext : DbContext, ILogOverridesTable
 {
-    private readonly string _connectionString;
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
+    private readonly IDbContextFactory<TDbContext> _dbFactory = dbFactory;
     private bool _initialized;
-
-    public MySqlLogLevelOverrides(string connectionString)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        _connectionString = connectionString;
-    }
 
     public async Task InitializeAsync()
     {
@@ -30,21 +25,8 @@ public sealed class MySqlLogLevelOverrides : ILogLevelOverrides
                 return;
             }
 
-            await using var connection = new MySqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            await using var command = connection.CreateCommand();
-            command.CommandText =
-                """
-                CREATE TABLE IF NOT EXISTS serilog_level_overrides (
-                    category VARCHAR(255) NOT NULL,
-                    level VARCHAR(32) NOT NULL,
-                    expires_utc DATETIME(6) NULL,
-                    PRIMARY KEY (category)
-                );
-                """;
-
-            await command.ExecuteNonQueryAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            await db.Database.EnsureCreatedAsync();
             _initialized = true;
         }
         finally
@@ -57,35 +39,19 @@ public sealed class MySqlLogLevelOverrides : ILogLevelOverrides
     {
         await InitializeAsync();
 
-        await using var connection = new MySqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            SELECT category, level, expires_utc
-            FROM serilog_level_overrides;
-            """;
-
+        await using var db = await _dbFactory.CreateDbContextAsync();
         var overrides = new Dictionary<string, LogLevelOverride>(StringComparer.Ordinal);
-        await using var reader = await command.ExecuteReaderAsync();
 
-        while (await reader.ReadAsync())
+        await foreach (var logOverride in db.LogOverrides.AsNoTracking().AsAsyncEnumerable())
         {
-            var category = reader.GetString(0);
-            var levelName = reader.GetString(1);
-            if (!Enum.TryParse<LogEventLevel>(levelName, ignoreCase: true, out var level) ||
+            if (!Enum.TryParse<LogEventLevel>(logOverride.Level, ignoreCase: true, out var level) ||
                 !Enum.IsDefined(level))
             {
                 throw new InvalidOperationException(
-                    $"The stored log level '{levelName}' for category '{category}' is invalid.");
+                    $"The stored log level '{logOverride.Level}' for category '{logOverride.Category}' is invalid.");
             }
 
-            DateTime? expiresUtc = reader.IsDBNull(2)
-                ? null
-                : DateTime.SpecifyKind(reader.GetDateTime(2), DateTimeKind.Utc);
-
-            overrides.Add(category, new LogLevelOverride(level, expiresUtc));
+            overrides.Add(logOverride.Category, new LogLevelOverride(level, logOverride.ExpiresUtc));
         }
 
         return overrides;
@@ -104,23 +70,25 @@ public sealed class MySqlLogLevelOverrides : ILogLevelOverrides
             ? DateTime.UtcNow.Add(expiresAfter.Value)
             : (DateTime?)null;
 
-        await using var connection = new MySqlConnection(_connectionString);
-        await connection.OpenAsync();
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var logOverride = await db.LogOverrides.SingleOrDefaultAsync(x => x.Category == category);
 
-        await using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            INSERT INTO serilog_level_overrides (category, level, expires_utc)
-            VALUES (@category, @level, @expiresUtc)
-            ON DUPLICATE KEY UPDATE
-                level = @level,
-                expires_utc = @expiresUtc;
-            """;
-        command.Parameters.AddWithValue("@category", category);
-        command.Parameters.AddWithValue("@level", level.ToString());
-        command.Parameters.AddWithValue("@expiresUtc", expiresUtc);
+        if (logOverride is null)
+        {
+            db.LogOverrides.Add(new LogOverride
+            {
+                Category = category,
+                Level = level.ToString(),
+                ExpiresUtc = expiresUtc
+            });
+        }
+        else
+        {
+            logOverride.Level = level.ToString();
+            logOverride.ExpiresUtc = expiresUtc;
+        }
 
-        await command.ExecuteNonQueryAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task RemoveAsync(string category)
@@ -129,17 +97,13 @@ public sealed class MySqlLogLevelOverrides : ILogLevelOverrides
 
         await InitializeAsync();
 
-        await using var connection = new MySqlConnection(_connectionString);
-        await connection.OpenAsync();
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var logOverride = await db.LogOverrides.SingleOrDefaultAsync(x => x.Category == category);
 
-        await using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            DELETE FROM serilog_level_overrides
-            WHERE category = @category;
-            """;
-        command.Parameters.AddWithValue("@category", category);
-
-        await command.ExecuteNonQueryAsync();
+        if (logOverride is not null)
+        {
+            db.LogOverrides.Remove(logOverride);
+            await db.SaveChangesAsync();
+        }
     }
 }
