@@ -1,6 +1,6 @@
 ﻿using Serilog.Events;
 
-namespace SeriilogLevelSwitch;
+namespace SerilogApi;
 
 /// <summary>
 /// describes how to read and write log level changes across horizontally-scaled instances of an app
@@ -8,5 +8,5 @@ namespace SeriilogLevelSwitch;
 public interface ILogLevelStore
 {
     Task<Dictionary<string, (LogEventLevel Level, DateTime? ExpiresUtc)>> GetLevelsAsync();
-    Task SetLevelAsync(string? category, LogEventLevel level, TimeSpan? expiresAfter = null);
+    Task SetLevelAsync(string category, LogEventLevel level, TimeSpan? expiresAfter = null);
 }

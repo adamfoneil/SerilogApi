@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace SeriilogLevelSwitch;
+namespace SerilogApi;
 
 /// <summary>
 /// add as hosted service in your application
@@ -16,7 +16,7 @@ public class SerilogLevelMonitor(
     private readonly LoggingLevelSwitch _levelSwitch = levelSwitch;
     private readonly ILogLevelStore _levelStore = levelStore;
     private readonly ILogger<SerilogLevelMonitor> _logger = logger;
-    private readonly Dictionary<string, LogEventLevel> _previousLevels = new();
+    private readonly Dictionary<string, LogEventLevel> _previousLevels = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
