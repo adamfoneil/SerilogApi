@@ -1,44 +1,156 @@
-using Scalar.AspNetCore;
+using DemoApi;
+using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+var database = await DemoDatabaseConnection.CreateAsync(builder.Configuration);
+var mySqlLogSink = new MySqlLogSink(database.ConnectionString);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
+    .UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString))
+    .Options;
+
+await using (var db = new DemoDbContext(dbContextOptions))
+{
+    await db.Database.MigrateAsync();
+}
+
+builder.Services.AddSingleton(database);
+builder.Services.AddDbContext<DemoDbContext>(options =>
+    options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)));
+
+builder.Services.AddHttpLogging(options =>
+{
+    options.LoggingFields =
+        HttpLoggingFields.RequestMethod |
+        HttpLoggingFields.RequestPath |
+        HttpLoggingFields.RequestQuery |
+        HttpLoggingFields.ResponseStatusCode |
+        HttpLoggingFields.Duration;
+});
+
+builder.Host.UseSerilog((_, _, configuration) =>
+{
+    configuration
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.Sink(mySqlLogSink);
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseHttpLogging();
+
+app.MapGet("/", (DemoDatabaseConnection connection) => Results.Ok(new
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    message = "Demo API is running.",
+    itemsEndpoint = "/items",
+    database = connection.IsDisposable ? "testcontainer" : "configured"
+}));
+
+var items = app.MapGroup("/items");
+
+items.MapGet("/", async (DemoDbContext db, ILogger<Program> logger) =>
+{
+    logger.LogInformation("Listing items");
+    var results = await db.Items.OrderBy(item => item.Id).ToListAsync();
+    return Results.Ok(results);
+});
+
+items.MapGet("/{id:int}", async (int id, DemoDbContext db, ILogger<Program> logger) =>
+{
+    logger.LogInformation("Retrieving item {ItemId}", id);
+    var item = await db.Items.FindAsync(id);
+    return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+items.MapPost("/", async (ItemUpsertRequest request, DemoDbContext db, ILogger<Program> logger) =>
+{
+    var validationProblem = Validate(request);
+    if (validationProblem is not null)
+    {
+        return Results.ValidationProblem(validationProblem);
+    }
+
+    var item = CreateItem(request);
+
+    db.Items.Add(item);
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Created item {ItemId} named {ItemName}", item.Id, item.Name);
+    return Results.Created($"/items/{item.Id}", item);
+});
+
+items.MapPut("/{id:int}", async (int id, ItemUpsertRequest request, DemoDbContext db, ILogger<Program> logger) =>
+{
+    var validationProblem = Validate(request);
+    if (validationProblem is not null)
+    {
+        return Results.ValidationProblem(validationProblem);
+    }
+
+    var item = await db.Items.FindAsync(id);
+    if (item is null)
+    {
+        return Results.NotFound();
+    }
+
+    ApplyRequest(item, request);
+
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Updated item {ItemId}", item.Id);
+    return Results.Ok(item);
+});
+
+try
+{
+    await app.RunAsync();
+}
+finally
+{
+    await mySqlLogSink.DisposeAsync();
+    await database.DisposeAsync();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+static Dictionary<string, string[]>? Validate(ItemUpsertRequest request)
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var errors = new Dictionary<string, string[]>();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        errors["name"] = ["Name is required."];
+    }
 
-app.Run();
+    if (request.Price < 0)
+    {
+        errors["price"] = ["Price must be zero or greater."];
+    }
 
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    return errors.Count == 0 ? null : errors;
 }
+
+static Item CreateItem(ItemUpsertRequest request)
+{
+    var item = new Item
+    {
+        CreatedUtc = DateTime.UtcNow
+    };
+
+    ApplyRequest(item, request);
+    return item;
+}
+
+static void ApplyRequest(Item item, ItemUpsertRequest request)
+{
+    item.Name = request.Name.Trim();
+    item.Description = request.Description?.Trim();
+    item.Price = request.Price;
+    item.UpdatedUtc = DateTime.UtcNow;
+}
+
+public partial class Program;
