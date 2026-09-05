@@ -1,4 +1,7 @@
-It should be easier to enable dynamic log level capability to Serilog. Typically, I'll run a production service at a high log level (warning or above) to minimize log ingestion, but need to temporarily elevate the log detail when responding to an incident. This is possible with Serilog's `LogLevelSwitch` but it needs to be wired in a certain way. This project is that "certain way." We'll do this with API endpoints you can add to any web project to 
+It should be easier to enable dynamic log level capability to Serilog. Typically, I'll run a production service at a high log level (warning or info) to minimize log ingestion. During an incident, I need to elevate the log detail temporarily. This is possible with Serilog's `LogLevelSwitch` but there are few moving pieces to this to make work. This project brings together some infrastructure to make this easier in your applications:
 
-- Inspect and elevate log levels. To prevent runaway log ingestion, escalations automatically revert after a few minutes.
-- Query your serilog store via API endpoints. While there are many log view apps out there, these tend to require enterprise purchase and be unavailable to ICs.
+- some interfaces you implement:
+  - [ILogLevelStore](SerilogApi/ILogLevelStore.cs) persists desired log levels
+  - [ILogQuery](SerilogApi/ILogQuery.cs) defines query operations against your Serilog data store
+- a background service that keeps log levels of load-balanced instances of an app in sync [SerilogLevelMonitor](SerilogApi/SerilogLevelMonitor.cs)
+- endpoint extensions for making these capabilities possible to execute from outside your app [EndpointExtensions](SerilogApi/EndpointExtensions.cs)
