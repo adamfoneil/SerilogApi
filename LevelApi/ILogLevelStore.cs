@@ -9,10 +9,6 @@ namespace SerilogLevelApi;
 public interface ILogLevelStore
 {
     /// <summary>
-    /// load baseline/default state from configuration
-    /// </summary>
-    Task InitializeAsync(IConfiguration configuration);
-    /// <summary>
     /// used by public API to inspect current log levels
     /// </summary>    
     Task<Dictionary<string, (LogEventLevel Level, DateTime? ExpiresUtc)>> GetLevelsAsync();
