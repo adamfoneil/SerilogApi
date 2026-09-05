@@ -1,0 +1,45 @@
+using Testcontainers.MySql;
+
+namespace DemoApi;
+
+public sealed class DemoDatabaseConnection(string connectionString, MySqlContainer? container) : IAsyncDisposable
+{
+    private bool _disposed;
+
+    public string ConnectionString { get; } = connectionString;
+    public bool IsDisposable => container is not null;
+
+    public static async Task<DemoDatabaseConnection> CreateAsync(IConfiguration configuration)
+    {
+        var configuredConnection = configuration.GetConnectionString("Default");
+        if (!string.IsNullOrWhiteSpace(configuredConnection))
+        {
+            return new DemoDatabaseConnection(configuredConnection, null);
+        }
+
+        var container = new MySqlBuilder("mysql:8.4")
+            .WithDatabase("serilogdemo")
+            .WithUsername("mysql")
+            .WithPassword("mysql")
+            .Build();
+
+        await container.StartAsync();
+
+        return new DemoDatabaseConnection(container.GetConnectionString(), container);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        if (container is not null)
+        {
+            await container.DisposeAsync();
+        }
+    }
+}
