@@ -10,11 +10,11 @@ namespace SerilogLevelApi;
 /// </summary>
 public class SerilogLevelMonitor(
     LoggingLevelSwitch levelSwitch,
-    ILogLevelStore levelStore,
+    ILogLevelOverrides levelStore,
     ILogger<SerilogLevelMonitor> logger) : BackgroundService
 {
     private readonly LoggingLevelSwitch _levelSwitch = levelSwitch;
-    private readonly ILogLevelStore _levelStore = levelStore;
+    private readonly ILogLevelOverrides _levelStore = levelStore;
     private readonly ILogger<SerilogLevelMonitor> _logger = logger;
     private readonly Dictionary<string, LogEventLevel> _previousLevels = [];
 
