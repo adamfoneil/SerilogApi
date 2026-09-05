@@ -14,7 +14,7 @@ var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
 
 await using (var db = new DemoDbContext(dbContextOptions))
 {
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.MigrateAsync();
 }
 
 builder.Services.AddSingleton(database);

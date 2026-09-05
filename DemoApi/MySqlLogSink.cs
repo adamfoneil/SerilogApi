@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using MySqlConnector;
@@ -10,9 +11,10 @@ namespace DemoApi;
 public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 {
     private readonly string _connectionString;
-    private readonly Channel<PendingLogEvent> _channel = Channel.CreateUnbounded<PendingLogEvent>(new UnboundedChannelOptions
+    private readonly Channel<PendingLogEvent> _channel = Channel.CreateBounded<PendingLogEvent>(new BoundedChannelOptions(1024)
     {
-        SingleReader = true
+        SingleReader = true,
+        FullMode = BoundedChannelFullMode.DropWrite
     });
     private readonly Task _processorTask;
 
@@ -37,7 +39,7 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 
         if (!_channel.Writer.TryWrite(pending))
         {
-            SelfLog.WriteLine("Failed to queue Serilog event for MySQL persistence.");
+            SelfLog.WriteLine("Dropped Serilog event because the MySQL buffer is full.");
         }
     }
 
@@ -72,35 +74,44 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 
     private async Task FlushBatchAsync(List<PendingLogEvent> batch)
     {
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
         try
         {
             await using var connection = new MySqlConnection(_connectionString);
             await connection.OpenAsync();
-            await using var transaction = await connection.BeginTransactionAsync();
 
-            foreach (var logEvent in batch)
+            await using var command = connection.CreateCommand();
+            var sql = new StringBuilder(
+                """
+                INSERT INTO serilog_events
+                    (TimestampUtc, Level, Message, MessageTemplate, Exception, PropertiesJson)
+                VALUES
+                """);
+
+            for (var i = 0; i < batch.Count; i++)
             {
-                await using var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText =
-                    """
-                    INSERT INTO serilog_events
-                        (TimestampUtc, Level, Message, MessageTemplate, Exception, PropertiesJson)
-                    VALUES
-                        (@timestampUtc, @level, @message, @messageTemplate, @exception, @propertiesJson);
-                    """;
+                if (i > 0)
+                {
+                    sql.AppendLine(",");
+                }
 
-                command.Parameters.AddWithValue("@timestampUtc", logEvent.TimestampUtc);
-                command.Parameters.AddWithValue("@level", logEvent.Level);
-                command.Parameters.AddWithValue("@message", logEvent.Message);
-                command.Parameters.AddWithValue("@messageTemplate", logEvent.MessageTemplate);
-                command.Parameters.AddWithValue("@exception", logEvent.Exception);
-                command.Parameters.AddWithValue("@propertiesJson", logEvent.PropertiesJson);
+                sql.Append($"(@timestampUtc{i}, @level{i}, @message{i}, @messageTemplate{i}, @exception{i}, @propertiesJson{i})");
 
-                await command.ExecuteNonQueryAsync();
+                var logEvent = batch[i];
+                command.Parameters.AddWithValue($"@timestampUtc{i}", logEvent.TimestampUtc);
+                command.Parameters.AddWithValue($"@level{i}", logEvent.Level);
+                command.Parameters.AddWithValue($"@message{i}", logEvent.Message);
+                command.Parameters.AddWithValue($"@messageTemplate{i}", logEvent.MessageTemplate);
+                command.Parameters.AddWithValue($"@exception{i}", logEvent.Exception);
+                command.Parameters.AddWithValue($"@propertiesJson{i}", logEvent.PropertiesJson);
             }
 
-            await transaction.CommitAsync();
+            command.CommandText = sql.ToString();
+            await command.ExecuteNonQueryAsync();
         }
         catch (Exception ex)
         {

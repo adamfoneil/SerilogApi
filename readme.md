@@ -13,5 +13,6 @@ It should be easier to enable dynamic log level capability to Serilog. Typically
 [DemoApi](DemoApi/DemoApi.csproj) is a runnable minimal API sample
 - uses EF Core with MySQL for a disposable `items` table
 - starts a disposable MySQL Testcontainer automatically when `ConnectionStrings__Default` is not configured
+- allows overriding the default container image with `DemoApi__MySqlImage`
 - writes application logs to both the console and a `serilog_events` table in MySQL
 - exposes minimal `/items` endpoints for listing, creating, and updating catalog-style items

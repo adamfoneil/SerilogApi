@@ -17,7 +17,9 @@ public sealed class DemoDatabaseConnection(string connectionString, MySqlContain
             return new DemoDatabaseConnection(configuredConnection, null);
         }
 
-        var container = new MySqlBuilder("mysql:8.4")
+        var image = configuration["DemoApi:MySqlImage"] ?? "mysql:8.4";
+
+        var container = new MySqlBuilder(image)
             .WithDatabase("serilogdemo")
             .WithUsername("mysql")
             .WithPassword("mysql")
