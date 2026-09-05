@@ -6,6 +6,7 @@ using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 var database = await DemoDatabaseConnection.CreateAsync(builder.Configuration);
+var mySqlLogSink = new MySqlLogSink(database.ConnectionString);
 
 var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
     .UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString))
@@ -37,12 +38,10 @@ builder.Host.UseSerilog((_, _, configuration) =>
         .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
         .Enrich.FromLogContext()
         .WriteTo.Console()
-        .WriteTo.Sink(new MySqlLogSink(database.ConnectionString));
+        .WriteTo.Sink(mySqlLogSink);
 });
 
 var app = builder.Build();
-
-app.Lifetime.ApplicationStopped.Register(() => database.DisposeAsync().AsTask().GetAwaiter().GetResult());
 
 app.UseHttpLogging();
 
@@ -77,14 +76,7 @@ items.MapPost("/", async (ItemUpsertRequest request, DemoDbContext db, ILogger<P
         return Results.ValidationProblem(validationProblem);
     }
 
-    var item = new Item
-    {
-        Name = request.Name.Trim(),
-        Description = request.Description?.Trim(),
-        Price = request.Price,
-        CreatedUtc = DateTime.UtcNow,
-        UpdatedUtc = DateTime.UtcNow
-    };
+    var item = CreateItem(request);
 
     db.Items.Add(item);
     await db.SaveChangesAsync();
@@ -107,10 +99,7 @@ items.MapPut("/{id:int}", async (int id, ItemUpsertRequest request, DemoDbContex
         return Results.NotFound();
     }
 
-    item.Name = request.Name.Trim();
-    item.Description = request.Description?.Trim();
-    item.Price = request.Price;
-    item.UpdatedUtc = DateTime.UtcNow;
+    ApplyRequest(item, request);
 
     await db.SaveChangesAsync();
 
@@ -118,7 +107,15 @@ items.MapPut("/{id:int}", async (int id, ItemUpsertRequest request, DemoDbContex
     return Results.Ok(item);
 });
 
-app.Run();
+try
+{
+    await app.RunAsync();
+}
+finally
+{
+    await mySqlLogSink.DisposeAsync();
+    await database.DisposeAsync();
+}
 
 static Dictionary<string, string[]>? Validate(ItemUpsertRequest request)
 {
@@ -135,6 +132,25 @@ static Dictionary<string, string[]>? Validate(ItemUpsertRequest request)
     }
 
     return errors.Count == 0 ? null : errors;
+}
+
+static Item CreateItem(ItemUpsertRequest request)
+{
+    var item = new Item
+    {
+        CreatedUtc = DateTime.UtcNow
+    };
+
+    ApplyRequest(item, request);
+    return item;
+}
+
+static void ApplyRequest(Item item, ItemUpsertRequest request)
+{
+    item.Name = request.Name.Trim();
+    item.Description = request.Description?.Trim();
+    item.Price = request.Price;
+    item.UpdatedUtc = DateTime.UtcNow;
 }
 
 public partial class Program;
