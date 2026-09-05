@@ -24,8 +24,6 @@ public static class EndpointExtensions
         grp.MapPut("/debug/{category:alpha}", async (ILogLevelStore levelStore, string? category) =>
         {            
             await levelStore.SetLevelAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(10));
-        });
-
-        
+        });        
     }
 }
