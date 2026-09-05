@@ -1,6 +1,7 @@
 using DemoApi;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
 
@@ -31,6 +32,8 @@ builder.Services.AddHttpLogging(options =>
         HttpLoggingFields.Duration;
 });
 
+builder.Services.AddOpenApi();
+
 builder.Host.UseSerilog((_, _, configuration) =>
 {
     configuration
@@ -44,6 +47,9 @@ builder.Host.UseSerilog((_, _, configuration) =>
 var app = builder.Build();
 
 app.UseHttpLogging();
+
+app.MapOpenApi();
+app.MapScalarApiReference("/scalar/v1");
 
 app.MapGet("/", (DemoDatabaseConnection connection) => Results.Ok(new
 {
