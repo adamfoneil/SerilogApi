@@ -13,12 +13,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 // MySQL test container
 var database = await DemoDatabaseConnection.CreateAsync(builder.Configuration);
+builder.Services.AddSingleton(database);
 
 // custom Serilog sink
 var mySqlLogSink = new MySqlLogSink(database.ConnectionString);
 
-var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
-//var logLevelOverrides = new MySqlLogLevelOverrides(database.ConnectionString);
+// global level switch with default min level, managed by our monitor. Determines overall log level
+var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Warning);
 
 // main db context used by demo app
 var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
@@ -30,13 +31,9 @@ await using (var db = new DemoDbContext(dbContextOptions))
     await db.Database.MigrateAsync();
 }
 
+builder.Services.AddMySqlLogLevelOverrides<DemoDbContext>(database.ConnectionString, levelSwitch);
 
-builder.Services.AddSingleton(database);
-builder.Services.AddSingleton(levelSwitch);
 
-builder.Services.AddMySqlLogLevelOverrides<DemoDbContext>(database.ConnectionString);
-
-builder.Services.AddHostedService<SerilogLevelMonitor>();
 builder.Services.AddDbContext<DemoDbContext>(options =>
     options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)));
 builder.Services.AddAuthorization();
