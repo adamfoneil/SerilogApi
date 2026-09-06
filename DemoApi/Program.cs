@@ -53,11 +53,12 @@ builder.Services.AddOpenApi();
 builder.Host.UseSerilog((_, _, configuration) =>
 {
     configuration
-        .MinimumLevel.ControlledBy(levelSwitch)
-        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
-        .MinimumLevel.Override("SerilogLevelApi", LogEventLevel.Information)
+        .MinimumLevel.ControlledBy(levelSwitch)        
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Connection", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+        .MinimumLevel.Override("SerilogLevelApi", LogEventLevel.Information) // this is so actions from related internal component show regardless of levelSwitch
         .Enrich.FromLogContext()
-        .WriteTo.Console()
+        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
         .WriteTo.Sink(mySqlLogSink);
 });
 
@@ -71,7 +72,7 @@ app.MapScalarApiReference("/scalar/v1");
 app.MapDemoEndpoints();
 app.MapLogLevelEndpoints(
     new AuthorizationPolicyBuilder()
-        .RequireAssertion(_ => true)
+        .RequireAssertion(_ => true) // for demo purposes, no authorization needed
         .Build());
 
 try
@@ -84,4 +85,3 @@ finally
     await database.DisposeAsync();
 }
 
-public partial class Program;
