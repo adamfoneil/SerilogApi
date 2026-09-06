@@ -6,6 +6,9 @@ namespace SerilogLevelApi.MySql;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// adds both the persistent store of level overrides along with the monitor service that polls the overrides and applies them
+    /// </summary>
     public static IServiceCollection AddMySqlLogLevelOverrides<TDbContext>(
         this IServiceCollection services,
         string connectionString)
@@ -20,6 +23,8 @@ public static class ServiceCollectionExtensions
                 ServerVersion.AutoDetect(connectionString)));
 
         services.TryAddSingleton<ILogLevelOverrides, MySqlLogLevelOverrides<TDbContext>>();
+        services.TryAddSingleton<SerilogLevelMonitor>();
+        services.AddHostedService(sp => sp.GetRequiredService<SerilogLevelMonitor>());
 
         return services;
     }
