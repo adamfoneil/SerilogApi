@@ -3,7 +3,8 @@ using Serilog.Events;
 
 namespace SerilogLevelApi.MySql;
 
-public sealed class MySqlLogLevelOverrides<TDbContext>(IDbContextFactory<TDbContext> dbFactory) : ILogLevelOverrides
+public sealed class MySqlLogLevelOverrides<TDbContext>(
+    IDbContextFactory<TDbContext> dbFactory) : ILogLevelOverrides
     where TDbContext : DbContext, ILogOverridesTable
 {
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
@@ -26,7 +27,7 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(IDbContextFactory<TDbCont
             }
 
             await using var db = await _dbFactory.CreateDbContextAsync();
-            await db.Database.EnsureCreatedAsync();
+            await db.EnsureLogOverridesTableExistsAsync();
             _initialized = true;
         }
         finally
@@ -70,7 +71,7 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(IDbContextFactory<TDbCont
             ? DateTime.UtcNow.Add(expiresAfter.Value)
             : (DateTime?)null;
 
-        await using var db = await _dbFactory.CreateDbContextAsync();
+        using var db = _dbFactory.CreateDbContext();
         var logOverride = await db.LogOverrides.SingleOrDefaultAsync(x => x.Category == category);
 
         if (logOverride is null)
@@ -97,7 +98,7 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(IDbContextFactory<TDbCont
 
         await InitializeAsync();
 
-        await using var db = await _dbFactory.CreateDbContextAsync();
+        using var db = _dbFactory.CreateDbContext();
         var logOverride = await db.LogOverrides.SingleOrDefaultAsync(x => x.Category == category);
 
         if (logOverride is not null)

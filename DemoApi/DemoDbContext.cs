@@ -1,11 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using SerilogLevelApi.MySql;
 
 namespace DemoApi;
 
-public sealed class DemoDbContext(DbContextOptions<DemoDbContext> options) : DbContext(options)
+public sealed class DemoDbContext(DbContextOptions<DemoDbContext> options) : DbContext(options), ILogOverridesTable
 {
     public DbSet<Item> Items => Set<Item>();
     public DbSet<SerilogEvent> SerilogEvents => Set<SerilogEvent>();
+
+    public DbSet<LogOverride> LogOverrides { get; set; }
+
+    public Task EnsureLogOverridesTableExistsAsync() =>
+        Database.ExecuteSqlRawAsync(LogOverrideConfiguration.CreateIfNotExistsSql);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,5 +34,7 @@ public sealed class DemoDbContext(DbContextOptions<DemoDbContext> options) : DbC
             entity.Property(log => log.Exception).HasColumnType("longtext");
             entity.Property(log => log.PropertiesJson).HasColumnType("longtext");
         });
+
+        modelBuilder.ApplyConfiguration(new LogOverrideConfiguration());
     }
 }

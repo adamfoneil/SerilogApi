@@ -5,4 +5,6 @@ namespace SerilogLevelApi.MySql;
 public interface ILogOverridesTable
 {
     DbSet<LogOverride> LogOverrides { get; set; }
+
+    Task EnsureLogOverridesTableExistsAsync();
 }
