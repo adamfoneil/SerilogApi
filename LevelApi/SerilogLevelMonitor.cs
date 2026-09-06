@@ -6,17 +6,19 @@ using Serilog.Events;
 namespace SerilogLevelApi;
 
 /// <summary>
-/// add as hosted service in your application
+/// polls the overrides levelStore and applies any change, also reverts back to defined baseline when elevation expires
 /// </summary>
 public class SerilogLevelMonitor(
     LoggingLevelSwitch levelSwitch,
     ILogLevelOverrides levelStore,
     ILogger<SerilogLevelMonitor> logger) : BackgroundService
 {
+    private const string DefaultCategory = "Default";
+
     private readonly LoggingLevelSwitch _levelSwitch = levelSwitch;
     private readonly ILogLevelOverrides _levelStore = levelStore;
     private readonly ILogger<SerilogLevelMonitor> _logger = logger;
-    private readonly Dictionary<string, LogEventLevel> _previousLevels = [];
+    private readonly LogEventLevel _configuredDefaultLevel = levelSwitch.MinimumLevel;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,64 +29,38 @@ public class SerilogLevelMonitor(
                 var levels = await _levelStore.GetAsync();
                 var now = DateTime.UtcNow;
 
-                // Process all levels from the store
-                foreach (var (category, (level, expiresUtc)) in levels)
+                var hasDefaultOverride = levels.TryGetValue(DefaultCategory, out var defaultOverride);
+                var defaultOverrideIsActive = hasDefaultOverride
+                    && (!defaultOverride!.ExpiresUtc.HasValue || defaultOverride.ExpiresUtc.Value > now);
+
+                var targetLevel = defaultOverrideIsActive
+                    ? defaultOverride!.Level
+                    : _configuredDefaultLevel;
+
+                if (_levelSwitch.MinimumLevel != targetLevel)
                 {
-                    // Check if this level has expired
-                    var isExpired = expiresUtc.HasValue && expiresUtc.Value <= now;
+                    _levelSwitch.MinimumLevel = targetLevel;
 
-                    if (!isExpired)
+                    if (defaultOverrideIsActive)
                     {
-                        // Level is active - apply it
-                        if (category == "Default")
-                        {
-                            // Capture previous level before first elevation
-                            if (!_previousLevels.ContainsKey(category))
-                            {
-                                _previousLevels[category] = _levelSwitch.MinimumLevel;
-                                _logger.LogInformation("Captured previous log level {PreviousLevel} for category {Category}", 
-                                    _previousLevels[category], category);
-                            }
-
-                            if (_levelSwitch.MinimumLevel != level)
-                            {
-                                _levelSwitch.MinimumLevel = level;
-                                _logger.LogInformation("Elevated log level to {Level} for category {Category}, expires at {ExpiresUtc}", 
-                                    level, category, expiresUtc?.ToString() ?? "never");
-                            }
-                        }
+                        _logger.LogInformation(
+                            "Applied log level override {Level} for category {Category}, expires at {ExpiresUtc}",
+                            targetLevel,
+                            DefaultCategory,
+                            defaultOverride!.ExpiresUtc?.ToString() ?? "never");
                     }
                     else
                     {
-                        // Level has expired - revert if we were tracking it
-                        if (category == "Default" && _previousLevels.ContainsKey(category))
-                        {
-                            var previousLevel = _previousLevels[category];
-                            _levelSwitch.MinimumLevel = previousLevel;
-                            _previousLevels.Remove(category);
-                            _logger.LogInformation("Reverted log level to {PreviousLevel} for expired category {Category}", 
-                                previousLevel, category);
-                        }
+                        _logger.LogInformation(
+                            "Reset log level to configured default {Level} for category {Category}",
+                            _configuredDefaultLevel,
+                            DefaultCategory);
                     }
                 }
-
-                // Check for categories that were removed from the store (manual removal or cleanup)
-                var trackedCategories = _previousLevels.Keys.ToList();
-                foreach (var trackedCategory in trackedCategories)
-                {
-                    if (!levels.ContainsKey(trackedCategory))
-                    {
-                        // Category was removed from store - revert it
-                        if (trackedCategory == "Default")
-                        {
-                            var previousLevel = _previousLevels[trackedCategory];
-                            _levelSwitch.MinimumLevel = previousLevel;
-                            _previousLevels.Remove(trackedCategory);
-                            _logger.LogInformation("Reverted log level to {PreviousLevel} for removed category {Category}", 
-                                previousLevel, trackedCategory);
-                        }
-                    }
-                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {

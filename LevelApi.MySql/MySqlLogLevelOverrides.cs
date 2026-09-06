@@ -1,13 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Serilog.Events;
 
 namespace SerilogLevelApi.MySql;
 
 public sealed class MySqlLogLevelOverrides<TDbContext>(
+    ILogger<MySqlLogLevelOverrides<TDbContext>> logger,
     IDbContextFactory<TDbContext> dbFactory) : ILogLevelOverrides
     where TDbContext : DbContext, ILogOverridesTable
 {
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
+    private readonly ILogger<MySqlLogLevelOverrides<TDbContext>> _logger = logger;
     private readonly IDbContextFactory<TDbContext> _dbFactory = dbFactory;
     private bool _initialized;
 
@@ -90,6 +93,7 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(
         }
 
         await db.SaveChangesAsync();
+        _logger.LogInformation("Set level override {category} to {level} in database", category, level);
     }
 
     public async Task RemoveAsync(string category)
@@ -105,6 +109,15 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(
         {
             db.LogOverrides.Remove(logOverride);
             await db.SaveChangesAsync();
+            _logger.LogInformation("Removed log level override {category} from database", category);
         }
+    }
+
+    public async Task ClearAsync()
+    {
+        using var db = _dbFactory.CreateDbContext();
+        await db.LogOverrides.ExecuteDeleteAsync();
+        _logger.LogInformation("Removed all log level overrides from database");
+        
     }
 }

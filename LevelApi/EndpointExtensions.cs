@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Serilog.Events;
 
@@ -14,16 +15,21 @@ public static class EndpointExtensions
     {
         var grp = routeBuilder.MapGroup("/serilog").RequireAuthorization(policy);
 
-        grp.MapGet("/levels", async (ILogLevelOverrides overrides) =>
+        grp.MapGet("/overrides", async (ILogLevelOverrides overrides) =>
         {
             var levels = await overrides.GetAsync();
             var dto = levels.Select(l => new LogLevelDto(l.Key, l.Value.Level.ToString(), l.Value.ExpiresUtc)).ToArray();
             return Results.Ok(dto);
         });
 
-        grp.MapPut("/debug/{category:alpha}", async (ILogLevelOverrides overrides, string? category) =>
-        {            
-            await overrides.SetAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(10));
-        });        
+        grp.MapPut("/debug", async (ILogLevelOverrides overrides, [FromQuery] string? category, [FromQuery] int? expiresIn) =>
+        {
+            await overrides.SetAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(expiresIn ?? 10));
+        });
+
+        grp.MapPost("/overrides/clear", async (ILogLevelOverrides overrides) =>
+        {
+            await overrides.ClearAsync();
+        });
     }
 }

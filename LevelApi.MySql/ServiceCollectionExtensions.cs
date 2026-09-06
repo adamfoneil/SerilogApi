@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddDbContextFactory<TDbContext>(options =>
             options.UseMySql(
                 connectionString,
-                ServerVersion.AutoDetect(connectionString)));
+                ServerVersion.AutoDetect(connectionString)), ServiceLifetime.Singleton);
 
         services.TryAddSingleton(levelSwitch);
         services.TryAddSingleton<ILogLevelOverrides, MySqlLogLevelOverrides<TDbContext>>();

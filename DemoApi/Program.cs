@@ -35,7 +35,7 @@ builder.Services.AddMySqlLogLevelOverrides<DemoDbContext>(database.ConnectionStr
 
 
 builder.Services.AddDbContext<DemoDbContext>(options =>
-    options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)));
+    options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)), ServiceLifetime.Singleton);
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpLogging(options =>
@@ -55,6 +55,7 @@ builder.Host.UseSerilog((_, _, configuration) =>
     configuration
         .MinimumLevel.ControlledBy(levelSwitch)
         .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+        .MinimumLevel.Override("SerilogLevelApi", LogEventLevel.Information)
         .Enrich.FromLogContext()
         .WriteTo.Console()
         .WriteTo.Sink(mySqlLogSink);

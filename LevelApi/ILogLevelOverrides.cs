@@ -15,4 +15,5 @@ public interface ILogLevelOverrides
     Task<Dictionary<string, LogLevelOverride>> GetAsync();
     Task SetAsync(string category, LogEventLevel level, TimeSpan? expiresAfter = null);
     Task RemoveAsync(string category);
+    Task ClearAsync();
 }
