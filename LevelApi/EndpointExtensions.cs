@@ -24,12 +24,37 @@ public static class EndpointExtensions
 
         grp.MapPut("/debug", async (ILogLevelOverrides overrides, [FromQuery] string? category, [FromQuery] int? expiresIn) =>
         {
-            await overrides.SetAsync(category ?? "Default", LogEventLevel.Debug, TimeSpan.FromMinutes(expiresIn ?? 10));
+            var useCategory = category ?? "Default";
+            try
+            {
+                await overrides.SetAsync(useCategory, LogEventLevel.Debug, TimeSpan.FromMinutes(expiresIn ?? 10));
+                return Results.Ok();
+            }
+            catch (Exception exc)
+            {                
+                return Results.Problem(exc.Message);
+            }
         });
 
-        grp.MapPost("/overrides/clear", async (ILogLevelOverrides overrides) =>
+        grp.MapPut("/override/{category:alpha}/{level:alpha}", async (ILogLevelOverrides overrides, string category, string level, [FromQuery] int? expiresIn) =>
         {
-            await overrides.ClearAsync();
+            if (Enum.TryParse<LogEventLevel>(level, out var levelVal))
+            {
+                try
+                {
+                    var expireMinutes = expiresIn.HasValue ? TimeSpan.FromMinutes(expiresIn.Value) : default;
+                    await overrides.SetAsync(category, levelVal, expireMinutes);
+                    return Results.Ok();
+                }
+                catch (Exception exc)
+                {                    
+                    return Results.Problem(exc.Message);
+                }
+            }
+
+            return Results.BadRequest($"Couldn't parse level value: {level}");
         });
+        
+        grp.MapDelete("/overrides/remove", async (ILogLevelOverrides overrides) => await overrides.RemoveTemporaryAsync());
     }
 }
