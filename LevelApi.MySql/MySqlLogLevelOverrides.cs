@@ -113,11 +113,17 @@ public sealed class MySqlLogLevelOverrides<TDbContext>(
         }
     }
 
-    public async Task ClearAsync()
+    public async Task ClearAllAsync()
     {
         using var db = _dbFactory.CreateDbContext();
         await db.LogOverrides.ExecuteDeleteAsync();
-        _logger.LogInformation("Removed all log level overrides from database");
-        
+        _logger.LogInformation("Removed all log level overrides from database");        
+    }
+
+    public async Task RemoveTemporaryAsync()
+    {
+        using var db = _dbFactory.CreateDbContext();
+        await db.LogOverrides.Where(row => row.ExpiresUtc.HasValue).ExecuteDeleteAsync();
+        _logger.LogInformation("Removed temporary level overrides from database");
     }
 }
