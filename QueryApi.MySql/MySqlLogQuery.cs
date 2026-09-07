@@ -19,13 +19,21 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
 
     private string ColumnNames(JsonColumn[] concatExpressions) => 
         string.Join(", ", 
-            _columnConfig.ColumnMappings.Select(col => $"`{col.Value}`")
+            _columnConfig.ColumnMappings.Select(col =>
+            {
+                var result = $"`{col.Value.Name}`";
+                if (!string.IsNullOrWhiteSpace(col.Value.Alias))
+                {
+                    result += $" AS `{col.Value.Alias}`";
+                }
+                return result;
+            })
             .Concat(concatExpressions.Select(expr => ExtractPropertyExpression(expr))));
 
     private string SortColumn(SortOptions sortOptions) => sortOptions switch
     {
-        SortOptions.TimestampAsc => $"`{_columnConfig.ColumnMappings[LogTableColumns.Timestamp]}` ASC",
-        SortOptions.TimestampDesc => $"`{_columnConfig.ColumnMappings[LogTableColumns.Timestamp]}` DESC",
+        SortOptions.TimestampAsc => $"`{_columnConfig.ColumnMappings[LogTableColumns.Timestamp].Name}` ASC",
+        SortOptions.TimestampDesc => $"`{_columnConfig.ColumnMappings[LogTableColumns.Timestamp].Name}` DESC",
         _ => throw new ArgumentOutOfRangeException(nameof(sortOptions), sortOptions, null)
     };
 
@@ -242,9 +250,11 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
 
     private string ExtractPropertyExpression(JsonColumn jsonColumn) => $"`{_columnConfig.ColumnMappings[jsonColumn.Column]}`->>'{jsonColumn.Expression}' AS `{jsonColumn.Alias}`";
 
-    public Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns, SortOptions sortOptions = SortOptions.TimestampDesc)
+    public async Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns, SortOptions sortOptions = SortOptions.TimestampDesc)
     {
-        throw new NotImplementedException();
+        var (sql, parameters) = BuildQuery(concatColumns, filter, sortOptions, filter.MaxResults > 0 ? filter.MaxResults : 100);
+        var results = await QueryInternalAsync(sql, parameters);
+        return [.. results];
     }
 
     private static JsonColumn SourceContext => new(LogTableColumns.PropertiesJson, "SourceContext", "$.SourceContext");
@@ -252,7 +262,7 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
 
     public async Task<ErrorInfo[]> RecentErrorsAsync(string? dateTimeExpression = null)
     {
-        var (sql, parameters) = BuildQuery([SourceContext, RequestId], new()
+        var (sql, parameters) = BuildQuery([], new()
         {
             DateTimeExpression = dateTimeExpression,
             Level = "Error"
@@ -263,8 +273,8 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
         return [..logEntries
             .GroupBy(row => (row.SourceContext, row.MessageTemplate)).Select(grp => 
                 new ErrorInfo(
-                    grp.First().Age, grp.Key.SourceContext, grp.Key.MessageTemplate, 
-                    [..grp.Select(row => row.Properties.GetValueOrDefault("RequestId", "<not set>").ToString()!)]
+                    grp.First().Age, grp.Key.SourceContext ?? string.Empty, grp.Key.MessageTemplate, 
+                    [..grp.Select(row => row.RequestId ?? "<not set>")]
                     ))];
     }
 
@@ -277,16 +287,19 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
         var utcNow = DateTime.UtcNow;
         foreach (var row in logEntries)
         {
+            var props = JsonSerializer.Deserialize<Dictionary<string, object>>(row.PropertiesJson) ?? [];
             row.Age = utcNow - row.Timestamp;
-            row.Properties = JsonSerializer.Deserialize<Dictionary<string, object>>(row.JsonData) ?? [];
+            row.Properties = props;
+            row.SourceContext = props.GetValueOrDefault("SourceContext")?.ToString();
+            row.RequestId = props.GetValueOrDefault("RequestId")?.ToString();
         }
 
         return logEntries;
     }
 
-    public Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns)
+    public async Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns)
     {
-        var sql = BuildQuery(concatColumns, new()
+        var (sql, parameters) = BuildQuery(concatColumns, new()
         {
             Properties = new()
             {
@@ -294,7 +307,7 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
             }
         }, SortOptions.TimestampAsc, 20);
 
-        throw new NotImplementedException();
+        return [.. await QueryInternalAsync(sql, parameters)];
     }
 
     private static System.Text.RegularExpressions.Regex MyRegex() =>

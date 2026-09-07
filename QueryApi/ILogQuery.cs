@@ -16,14 +16,15 @@ public record ErrorInfo(
 
 public record LogEntry(
     DateTime Timestamp,
-    string SourceContext,
     string Level,
     string MessageTemplate,
     string Message,
-    string JsonData)
+    string PropertiesJson)
 {
     public Dictionary<string, object> Properties { get; set; } = [];
     public TimeSpan Age { get; set; }
+    public string? SourceContext { get; set; }
+    public string? RequestId { get; set; }
 }
 
 public record JsonColumn(
