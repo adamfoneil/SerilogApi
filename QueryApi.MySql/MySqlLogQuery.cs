@@ -1,4 +1,5 @@
-﻿using SerilogQueryApi;
+﻿using Dapper;
+using SerilogQueryApi;
 
 namespace QueryApi.MySql;
 
@@ -7,17 +8,18 @@ public class MySqlLogQuery(string connectionString, ColumnConfiguration columnCo
     private readonly string _connectionString = connectionString;
     private readonly ColumnConfiguration _columnConfig = columnConfig;
 
-    private string BuildQuery(JsonColumn[] concatExpressions, LogCriteria criteria) => 
-        $"SELECT {ColumnNames(concatExpressions)} FROM `{_columnConfig.TableName}` {WhereClause(criteria)}";
+    private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria criteria) => 
+        ($"SELECT {ColumnNames(concatExpressions)} FROM `{_columnConfig.TableName}` {WhereClause(criteria, out var parameters)}", parameters);
 
     private string ColumnNames(JsonColumn[] concatExpressions) => 
         string.Join(", ", 
             _columnConfig.ColumnMappings.Select(col => $"`{col.Value}`")
             .Concat(concatExpressions.Select(expr => ExtractPropertyExpression(expr))));
 
-    private string WhereClause(LogCriteria criteria)
+    private string WhereClause(LogCriteria criteria, out DynamicParameters parameters)
     {
         var terms = new List<string>();
+        parameters = new DynamicParameters();
         
         if (ParseDateExpression(criteria.DateTimeExpression, out var expr))
         {
@@ -26,24 +28,28 @@ public class MySqlLogQuery(string connectionString, ColumnConfiguration columnCo
 
         if (!string.IsNullOrWhiteSpace(criteria.Level))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Level]}` = '{criteria.Level}'");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Level]}` = @Level");
+            parameters.Add("Level", criteria.Level);
         }
 
         if (!string.IsNullOrWhiteSpace(criteria.MessageContains))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` LIKE '%{criteria.MessageContains}%'");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` LIKE @MessageContains");
+            parameters.Add("MessageContains", $"%{criteria.MessageContains}%");
         }
 
         if (!string.IsNullOrWhiteSpace(criteria.MessageExcludes))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` NOT LIKE '%{criteria.MessageExcludes}%'");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` NOT LIKE @MessageExcludes");
+            parameters.Add("MessageExcludes", $"%{criteria.MessageExcludes}%");
         }
 
         if (criteria.MessageProperties?.Count > 0)
         {
             foreach (var kvp in criteria.MessageProperties)
             {
-                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.Message]}`, '$.{kvp.Key}') = '{kvp.Value}'");
+                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.Message]}`, '$.{kvp.Key}') = @{kvp.Key}");
+                parameters.Add(kvp.Key, kvp.Value);
             }
         }
 
@@ -51,7 +57,8 @@ public class MySqlLogQuery(string connectionString, ColumnConfiguration columnCo
         {
             foreach (var kvp in criteria.Properties)
             {
-                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.PropertiesJson]}`, '$.{kvp.Key}') = '{kvp.Value}'");
+                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.PropertiesJson]}`, '$.{kvp.Key}') = @{kvp.Key}");
+                parameters.Add(kvp.Key, kvp.Value);
             }
         }
 
