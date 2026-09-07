@@ -8,7 +8,7 @@ namespace SerilogQueryApi;
 
 public record QueryRequest(
     LogCriteria Criteria,
-    JsonColumn[] Columns);
+    JsonColumn[]? Columns);
 
 public static class EndpointExtensions
 {
@@ -30,7 +30,7 @@ public static class EndpointExtensions
 
         grp.MapPost("/query", async (ILogQuery query, QueryRequest request) =>
         {
-            var results = await query.QueryAsync(request.Criteria, request.Columns);
+            var results = await query.QueryAsync(request.Criteria, request.Columns ?? []);
             return Results.Ok(results);
         });
     }
