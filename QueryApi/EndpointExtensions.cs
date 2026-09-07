@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace SerilogQueryApi;
+
+public record QueryRequest(
+    LogCriteria Criteria,
+    JsonColumn[] Columns);
 
 public static class EndpointExtensions
 {
@@ -17,20 +22,15 @@ public static class EndpointExtensions
             return Results.Ok(results);
         });
 
-        grp.MapGet("/trace/{requestId}", async (ILogQuery query, string requestId) =>
+        grp.MapPost("/trace/{requestId}", async (ILogQuery query, string requestId, [FromBody]JsonColumn[] columns) =>
         {
-            var results = await query.QueryAsync(new()
-            {
-                Properties = new()
-                {
-                    ["RequestId"] = requestId
-                }
-            });
+            var results = await query.TraceAsync(requestId, columns);
+            return Results.Ok(results);
         });
 
-        grp.MapPost("/query", async (ILogQuery query, LogCriteria criteria) =>
+        grp.MapPost("/query", async (ILogQuery query, QueryRequest request) =>
         {
-            var results = await query.QueryAsync(criteria);
+            var results = await query.QueryAsync(request.Criteria, request.Columns);
             return Results.Ok(results);
         });
     }
