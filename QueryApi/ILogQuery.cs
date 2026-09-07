@@ -1,5 +1,11 @@
 ﻿namespace SerilogQueryApi;
 
+public enum SortOptions
+{
+    TimestampAsc, 
+    TimestampDesc
+}
+
 public record ErrorInfo(
     // age of most recent RequestId
     TimeSpan Age,
@@ -9,12 +15,16 @@ public record ErrorInfo(
     string[] RequestIds);
 
 public record LogEntry(
-    DateTime Timestamp,    
-    TimeSpan Age,
+    DateTime Timestamp,
     string SourceContext,
     string Level,
+    string MessageTemplate,
     string Message,
-    Dictionary<string, string> Properties);
+    string JsonData)
+{
+    public Dictionary<string, string> Properties { get; set; } = [];
+    public TimeSpan Age { get; set; }
+}
 
 public record JsonColumn(
     LogTableColumns Column, // usually the JsonProperties column, but could be Message column when it has json
@@ -54,5 +64,5 @@ public interface ILogQuery
 
     Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns);
 
-    Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns);
+    Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns, SortOptions sortOptions = SortOptions.TimestampDesc);
 }
