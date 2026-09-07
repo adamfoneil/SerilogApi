@@ -1,4 +1,4 @@
-﻿namespace SerilogApi;
+﻿namespace SerilogQueryApi;
 
 public record ErrorInfo(
     // age of most recent RequestId
@@ -15,6 +15,11 @@ public record LogEntry(
     string Level,
     string Message,
     Dictionary<string, string> Properties);
+
+public record JsonColumn(
+    LogTableColumns Column, // usually the JsonProperties column, but could be Message column when it has json
+    string Alias,
+    string Expression);
 
 public class LogCriteria
 {
@@ -47,7 +52,7 @@ public interface ILogQuery
 {
     Task<ErrorInfo[]> RecentErrorsAsync(string? dateTimeExpression = null);
 
-    Task<LogEntry[]> TraceAsync(string requestId);
+    Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns);
 
-    Task<LogEntry[]> QueryAsync(LogCriteria filter);
+    Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns);
 }
