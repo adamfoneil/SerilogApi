@@ -1,5 +1,7 @@
 It should be easier to enable dynamic log level capability to Serilog. Typically, I'll run a production service at a high log level (warning or info) to minimize log ingestion. During an incident, I need to elevate the log detail temporarily. This is possible with Serilog's `LoggingLevelSwitch` but there are few moving pieces you need to make this work. This project brings together some infrastructure to make this easier in your applications.
 
+A secondary purpose of this project is to enable Serilog querying. When you've temporarily elevated log detail, how do you query it? A wealth of off-the-shelf observability solutions for exactly this already exist. Why build another? The reason is that in enterprise settings, observability tools are expensive and hard to justify, or they are gatekept away for beaurocratic reasons. If you're already using a relational database sink with Serilog, querying it by SQL is natural to do, but still rather complex. The goal here therefore is to implement some practical query patterns you can plug into any application.
+
 # Usage
 
 ## Level API
