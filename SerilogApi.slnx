@@ -2,5 +2,6 @@
   <Project Path="DemoApi/DemoApi.csproj" />
   <Project Path="LevelApi.MySql/LevelApi.MySql.csproj" Id="4f9c20de-ae36-4695-adde-ee42aaadc755" />
   <Project Path="LevelApi/LevelApi.csproj" Id="94ced29f-c814-4ed3-ad46-7430b2b05910" />
+  <Project Path="QueryApi.MySql/QueryApi.MySql.csproj" Id="bbbf365b-b1e4-4257-9777-69eedb3f2b83" />
   <Project Path="QueryApi/QueryApi.csproj" Id="71f72064-0474-4920-bff0-9cfdfde28017" />
 </Solution>
