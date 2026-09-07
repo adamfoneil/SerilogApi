@@ -2,17 +2,25 @@
 
 namespace QueryApi.MySql;
 
+public record JsonColumn(
+    LogTableColumns Column, // usually the JsonProperties column, but could be Message column when it has json
+    string Alias, 
+    string Expression);
+
 public class MySqlLogQuery(string connectionString, ColumnConfiguration columnConfig) : ILogQuery
 {
     private readonly string _connectionString = connectionString;
     private readonly ColumnConfiguration _columnConfig = columnConfig;
 
-    private string BuildQuery((LogTableColumns Column, string Expression)[] concatExpressions) => $"SELECT {ColumnNames(concatExpressions)} FROM `{_columnConfig.TableName}`";
+    private string BuildQuery(JsonColumn[] concatExpressions, LogCriteria criteria) => 
+        $"SELECT {ColumnNames(concatExpressions)} FROM `{_columnConfig.TableName}`";
 
-    private string ColumnNames((LogTableColumns Column, string Expression)[] concatExpressions) => 
-        string.Join(", ", _columnConfig.ColumnMappings.Select(col => $"`{col.Value}`").Concat(concatExpressions.Select(expr => ExtractPropertyExpression(expr.Column, expr.Expression))));
+    private string ColumnNames(JsonColumn[] concatExpressions) => 
+        string.Join(", ", 
+            _columnConfig.ColumnMappings.Select(col => $"`{col.Value}`")
+            .Concat(concatExpressions.Select(expr => ExtractPropertyExpression(expr))));
 
-    private string ExtractPropertyExpression(LogTableColumns sourceColumn, string propertyExpression) => $"`{_columnConfig.ColumnMappings[sourceColumn]}`->>'{propertyExpression}'";
+    private string ExtractPropertyExpression(JsonColumn jsonColumn) => $"`{_columnConfig.ColumnMappings[jsonColumn.Column]}`->>'{jsonColumn.Expression}' AS `{jsonColumn.Alias}`";
 
     public Task<LogEntry[]> QueryAsync(LogCriteria filter)
     {
