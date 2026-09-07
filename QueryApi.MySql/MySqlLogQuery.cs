@@ -264,7 +264,7 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
             .GroupBy(row => (row.SourceContext, row.MessageTemplate)).Select(grp => 
                 new ErrorInfo(
                     grp.First().Age, grp.Key.SourceContext, grp.Key.MessageTemplate, 
-                    [..grp.Select(row => row.Properties.GetValueOrDefault("RequestId", "<not set>"))]
+                    [..grp.Select(row => row.Properties.GetValueOrDefault("RequestId", "<not set>").ToString()!)]
                     ))];
     }
 
@@ -278,7 +278,7 @@ public partial class MySqlLogQuery(string connectionString, ColumnConfiguration 
         foreach (var row in logEntries)
         {
             row.Age = utcNow - row.Timestamp;
-            row.Properties = JsonSerializer.Deserialize<Dictionary<string, string>>(row.JsonData) ?? [];
+            row.Properties = JsonSerializer.Deserialize<Dictionary<string, object>>(row.JsonData) ?? [];
         }
 
         return logEntries;

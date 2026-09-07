@@ -22,7 +22,7 @@ public record LogEntry(
     string Message,
     string JsonData)
 {
-    public Dictionary<string, string> Properties { get; set; } = [];
+    public Dictionary<string, object> Properties { get; set; } = [];
     public TimeSpan Age { get; set; }
 }
 
