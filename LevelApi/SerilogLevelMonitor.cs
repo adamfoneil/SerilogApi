@@ -57,6 +57,8 @@ public class SerilogLevelMonitor(
                             DefaultCategory);
                     }
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -65,9 +67,7 @@ public class SerilogLevelMonitor(
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error polling log level store");
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }            
         }
     }
 }

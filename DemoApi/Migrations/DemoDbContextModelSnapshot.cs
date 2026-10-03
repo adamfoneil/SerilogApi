@@ -53,43 +53,6 @@ namespace DemoApi.Migrations
 
                     b.ToTable("items", (string)null);
                 });
-
-            modelBuilder.Entity("DemoApi.SerilogEvent", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Exception")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("varchar(32)");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<string>("MessageTemplate")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<string>("PropertiesJson")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("TimestampUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("serilog_events", (string)null);
-                });
 #pragma warning restore 612, 618
         }
     }

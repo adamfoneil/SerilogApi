@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LevelApi.MySql\LevelApi.MySql.csproj" />
     <ProjectReference Include="..\LevelApi\LevelApi.csproj" />
+    <ProjectReference Include="..\QueryApi.MySql\QueryApi.MySql.csproj" />
   </ItemGroup>
 
 </Project>

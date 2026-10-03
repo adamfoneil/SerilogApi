@@ -2,12 +2,14 @@ using DemoApi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
+using QueryApi.MySql;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using SerilogLevelApi;
 using SerilogLevelApi.MySql;
+using SerilogQueryApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,8 +17,12 @@ var builder = WebApplication.CreateBuilder(args);
 var database = await DemoDatabaseConnection.CreateAsync(builder.Configuration);
 builder.Services.AddSingleton(database);
 
+var tableConfiguration = MySqlLogQuery.DefaultTableConfiguration;
+
+builder.Services.AddSerilogQuery(database.ConnectionString, tableConfiguration);
+
 // custom Serilog sink
-var mySqlLogSink = new MySqlLogSink(database.ConnectionString);
+var mySqlLogSink = new MySqlLogSink(database.ConnectionString, tableConfiguration);
 
 // global level switch with default min level, managed by our monitor. Determines overall log level
 var levelSwitch = new LoggingLevelSwitch(LogEventLevel.Warning);
@@ -29,13 +35,17 @@ var dbContextOptions = new DbContextOptionsBuilder<DemoDbContext>()
 await using (var db = new DemoDbContext(dbContextOptions))
 {
     await db.Database.MigrateAsync();
+    await db.EnsureSerilogTableExistsAsync(tableConfiguration);
 }
 
 builder.Services.AddMySqlLogLevelOverrides<DemoDbContext>(database.ConnectionString, levelSwitch);
 
+builder.Services.AddDbContext<DemoDbContext>((services, options) =>
+{
+    options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString));
+}, ServiceLifetime.Singleton);
 
-builder.Services.AddDbContext<DemoDbContext>(options =>
-    options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString)), ServiceLifetime.Singleton);
+builder.Services.AddSingleton(tableConfiguration);
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpLogging(options =>
@@ -70,10 +80,16 @@ app.MapOpenApi();
 app.MapScalarApiReference("/scalar/v1");
 
 app.MapDemoEndpoints();
-app.MapLogLevelEndpoints(
-    new AuthorizationPolicyBuilder()
+
+var allowAll = new AuthorizationPolicyBuilder()
         .RequireAssertion(_ => true) // for demo purposes, no authorization needed
-        .Build());
+        .Build();
+
+// enables you to debug (and auto revert after 10 minutes)
+app.MapLogLevelEndpoints(allowAll);
+
+// enables you to query serilog data
+app.MapLogQueryEndpoints(allowAll);
 
 try
 {

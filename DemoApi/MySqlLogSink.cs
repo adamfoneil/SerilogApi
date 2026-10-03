@@ -5,22 +5,26 @@ using MySqlConnector;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
+using SerilogQueryApi;
 
 namespace DemoApi;
 
 public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 {
     private readonly string _connectionString;
+    private readonly TableConfiguration _tableConfiguration;
     private readonly Channel<PendingLogEvent> _channel = Channel.CreateBounded<PendingLogEvent>(new BoundedChannelOptions(1024)
     {
         SingleReader = true,
         FullMode = BoundedChannelFullMode.DropWrite
     });
+
     private readonly Task _processorTask;
 
-    public MySqlLogSink(string connectionString)
+    public MySqlLogSink(string connectionString, TableConfiguration tableConfiguration)
     {
         _connectionString = connectionString;
+        _tableConfiguration = tableConfiguration;
         _processorTask = Task.Run(ProcessAsync);
     }
 
@@ -74,10 +78,7 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 
     private async Task FlushBatchAsync(List<PendingLogEvent> batch)
     {
-        if (batch.Count == 0)
-        {
-            return;
-        }
+        if (batch.Count == 0) return;
 
         try
         {
@@ -85,12 +86,18 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
             await connection.OpenAsync();
 
             await using var command = connection.CreateCommand();
-            var sql = new StringBuilder(
-                """
-                INSERT INTO serilog_events
-                    (TimestampUtc, Level, Message, MessageTemplate, Exception, PropertiesJson)
-                VALUES
-                """);
+
+            // Build column list from table configuration
+            var columnNames = new List<string>();
+            var columnOrder = new List<LogTableColumns>();
+
+            foreach (var mapping in _tableConfiguration.ColumnMappings)
+            {
+                columnNames.Add(mapping.Value.Name);
+                columnOrder.Add(mapping.Key);
+            }
+
+            var sql = new StringBuilder($"INSERT INTO {_tableConfiguration.TableName} ({string.Join(", ", columnNames)}) VALUES");
 
             for (var i = 0; i < batch.Count; i++)
             {
@@ -99,15 +106,27 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
                     sql.AppendLine(",");
                 }
 
-                sql.Append($"(@timestampUtc{i}, @level{i}, @message{i}, @messageTemplate{i}, @exception{i}, @propertiesJson{i})");
+                var paramNames = columnOrder.Select(col => $"@{col}{i}").ToList();
+                sql.Append($"({string.Join(", ", paramNames)})");
 
                 var logEvent = batch[i];
-                command.Parameters.AddWithValue($"@timestampUtc{i}", logEvent.TimestampUtc);
-                command.Parameters.AddWithValue($"@level{i}", logEvent.Level);
-                command.Parameters.AddWithValue($"@message{i}", logEvent.Message);
-                command.Parameters.AddWithValue($"@messageTemplate{i}", logEvent.MessageTemplate);
-                command.Parameters.AddWithValue($"@exception{i}", logEvent.Exception);
-                command.Parameters.AddWithValue($"@propertiesJson{i}", logEvent.PropertiesJson);
+
+                // Add parameters in the order defined by column mappings
+                foreach (var col in columnOrder)
+                {
+                    var paramName = $"@{col}{i}";
+                    var value = col switch
+                    {
+                        LogTableColumns.Timestamp => (object)logEvent.TimestampUtc,
+                        LogTableColumns.Level => logEvent.Level,
+                        LogTableColumns.Message => logEvent.Message,
+                        LogTableColumns.MessageTemplate => logEvent.MessageTemplate,
+                        LogTableColumns.PropertiesJson => logEvent.PropertiesJson,
+                        _ => throw new InvalidOperationException($"Unknown column type: {col}")
+                    };
+
+                    command.Parameters.AddWithValue(paramName, value ?? DBNull.Value);
+                }
             }
 
             command.CommandText = sql.ToString();

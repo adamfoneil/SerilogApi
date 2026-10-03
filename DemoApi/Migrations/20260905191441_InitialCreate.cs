@@ -35,29 +35,6 @@ namespace DemoApi.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
-            migrationBuilder.CreateTable(
-                name: "serilog_events",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    TimestampUtc = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    Level = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Message = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    MessageTemplate = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Exception = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    PropertiesJson = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_serilog_events", x => x.Id);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
         }
 
         /// <inheritdoc />
@@ -65,9 +42,6 @@ namespace DemoApi.Migrations
         {
             migrationBuilder.DropTable(
                 name: "items");
-
-            migrationBuilder.DropTable(
-                name: "serilog_events");
         }
     }
 }

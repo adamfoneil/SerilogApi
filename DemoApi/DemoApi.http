@@ -1,6 +1,35 @@
-@DemoApi_HostAddress = http://localhost:5104
+@host = https://localhost:7226
 
-GET {{DemoApi_HostAddress}}/weatherforecast/
+GET {{host}}/serilog/overrides
 Accept: application/json
 
 ###
+
+PUT {{host}}/serilog/debug
+
+###
+
+POST {{host}}/serilog/query
+
+###
+
+POST {{host}}/serilog/query
+Content-type: application/json
+{
+  "Criteria": {
+    "Level":"Information",
+    "Properties": {
+      "SourceContext":"Microsoft.EntityFrameworkCore.Database.Command"
+    }
+  }  
+}
+
+###
+
+POST {{host}}/serilog/query
+Content-type: application/json
+{
+  "Criteria": {
+    "Level":"Information"    
+  }  
+}

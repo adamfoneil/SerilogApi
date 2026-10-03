@@ -10,7 +10,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
     private readonly string _connectionString = connectionString;
     private readonly TableConfiguration _columnConfig = columnConfig;
 
-    private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria criteria, SortOptions sortOptions, int limit) => 
+    private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria? criteria, SortOptions sortOptions, int limit) => 
         (@$"SELECT {ColumnNames(concatExpressions)} 
         FROM `{_columnConfig.TableName}` 
         {WhereClause(criteria, out var parameters)} 
@@ -37,11 +37,14 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         _ => throw new ArgumentOutOfRangeException(nameof(sortOptions), sortOptions, null)
     };
 
-    private string WhereClause(LogCriteria criteria, out DynamicParameters parameters)
+    private string WhereClause(LogCriteria? criteria, out DynamicParameters parameters)
     {
-        var terms = new List<string>();
         parameters = new DynamicParameters();
-        
+
+        if (criteria is null) return string.Empty;
+
+        var terms = new List<string>();        
+
         if (ParseDateExpression(criteria.DateTimeExpression, parameters, out var expr))
         {
             terms.Add(expr);
@@ -49,19 +52,19 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
 
         if (!string.IsNullOrWhiteSpace(criteria.Level))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Level]}` = @Level");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Level].Name}` = @Level");
             parameters.Add("Level", criteria.Level);
         }
 
         if (!string.IsNullOrWhiteSpace(criteria.MessageContains))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` LIKE @MessageContains");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message].Name}` LIKE @MessageContains");
             parameters.Add("MessageContains", $"%{criteria.MessageContains}%");
         }
 
         if (!string.IsNullOrWhiteSpace(criteria.MessageExcludes))
         {
-            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message]}` NOT LIKE @MessageExcludes");
+            terms.Add($"`{_columnConfig.ColumnMappings[LogTableColumns.Message].Name}` NOT LIKE @MessageExcludes");
             parameters.Add("MessageExcludes", $"%{criteria.MessageExcludes}%");
         }
 
@@ -69,7 +72,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         {
             foreach (var kvp in criteria.MessageProperties)
             {
-                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.Message]}`, '$.{kvp.Key}') = @{kvp.Key}");
+                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.Message].Name}`, '$.{kvp.Key}') = @{kvp.Key}");
                 parameters.Add(kvp.Key, kvp.Value);
             }
         }
@@ -78,7 +81,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         {
             foreach (var kvp in criteria.Properties)
             {
-                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.PropertiesJson]}`, '$.{kvp.Key}') = @{kvp.Key}");
+                terms.Add($"JSON_EXTRACT(`{_columnConfig.ColumnMappings[LogTableColumns.PropertiesJson].Name}`, '$.{kvp.Key}') = @{kvp.Key}");
                 parameters.Add(kvp.Key, kvp.Value);
             }
         }
@@ -86,7 +89,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         return terms.Count > 0 ? " WHERE " + string.Join(" AND ", terms) : string.Empty;
     }
 
-    private static bool ParseDateExpression(string? dateTimeExpression, DynamicParameters parameters, out string expr)
+    private bool ParseDateExpression(string? dateTimeExpression, DynamicParameters parameters, out string expr)
     {
         expr = string.Empty;
         if (string.IsNullOrWhiteSpace(dateTimeExpression))
@@ -95,11 +98,13 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         }
 
         string input = dateTimeExpression!.Trim();
+        var timestampColumn = $"`{_columnConfig.ColumnMappings[LogTableColumns.Timestamp].Name}`";
+
         // Helper: parse a single date token which can be:
         // - ISO/parseable date/time
         // - "now" optionally with +/- offsets like now-1h30m or now+2d
         // - "today" or "yesterday"
-        DateTimeOffset? ParseToken(string token)
+        static DateTimeOffset? ParseToken(string token)
         {
             token = token.Trim();
             if (string.IsNullOrEmpty(token))
@@ -138,121 +143,81 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
                         return null;
                     var unit = m.Groups[3].Value;
                     int signed = sign * val;
-                    switch (unit)
+
+                    DateTimeOffset? newTime = unit switch
                     {
-                        case "y": baseTime = baseTime.AddYears(signed); break;
-                        case "M": baseTime = baseTime.AddMonths(signed); break;
-                        case "d": baseTime = baseTime.AddDays(signed); break;
-                        case "h": baseTime = baseTime.AddHours(signed); break;
-                        case "m": baseTime = baseTime.AddMinutes(signed); break;
-                        case "s": baseTime = baseTime.AddSeconds(signed); break;
-                        default: return null;
-                    }
+                        "y" => baseTime.AddYears(signed),
+                        "M" => baseTime.AddMonths(signed),
+                        "d" => baseTime.AddDays(signed),
+                        "h" => baseTime.AddHours(signed),
+                        "m" => baseTime.AddMinutes(signed),
+                        "s" => baseTime.AddSeconds(signed),
+                        _ => null
+                    };
+
+                    if (newTime == null)
+                        return null;
+
+                    baseTime = newTime.Value;
                 }
                 return baseTime;
             }
 
-            // Try to parse as a date/time (prefer invariant/UTC)
-            if (DateTimeOffset.TryParse(token, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var dto))
-                return dto;
-
-            if (DateTime.TryParse(token, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
-                return new DateTimeOffset(dt.ToUniversalTime());
+            // Try parse ISO / general date parsing
+            if (DateTimeOffset.TryParse(token, out var parsed))
+                return parsed;
 
             return null;
         }
 
-        // Helper: unique parameter name
-        string GetUniqueParamName(string baseName)
+        // Range: token..token
+        if (input.Contains(".."))
         {
-            int i = 0;
-            string name;
-            var existing = new HashSet<string>(parameters.ParameterNames ?? [], StringComparer.OrdinalIgnoreCase);
-            do
-            {
-                name = $"{baseName}{i}";
-                i++;
-            } while (existing.Contains(name));
-            return name;
+            var parts = input.Split(new[] { ".." }, StringSplitOptions.None);
+            if (parts.Length != 2)
+                return false;
+
+            var from = ParseToken(parts[0]);
+            var to = ParseToken(parts[1]);
+            if (from == null || to == null)
+                return false;
+
+            parameters.Add("From", from.Value.UtcDateTime);
+            parameters.Add("To", to.Value.UtcDateTime);
+            expr = $"{timestampColumn} BETWEEN @From AND @To";
+            return true;
         }
 
-        // Support range separators ".." or "/" or ":" (common choices)
-        string[] rangeSeparators = ["..", "/", ":"];
-        foreach (var sep in rangeSeparators)
+        // Comparison operators: <, >, <=, >=
         {
-            if (input.Contains(sep))
+            var m = new System.Text.RegularExpressions.Regex(@"^(<=|>=|<|>)(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled).Match(input);
+            if (m.Success)
             {
-                var parts = input.Split([sep], StringSplitOptions.None);
-                if (parts.Length == 2)
-                {
-                    var left = ParseToken(parts[0]);
-                    var right = ParseToken(parts[1]);
-
-                    if (left == null && right == null)
-                        return false;
-
-                    // Add parameters and build expression
-                    if (left != null && right != null)
-                    {
-                        var p1 = GetUniqueParamName("date");
-                        var p2 = GetUniqueParamName("date");
-                        parameters.Add(p1, left.Value.UtcDateTime, System.Data.DbType.DateTime);
-                        parameters.Add(p2, right.Value.UtcDateTime, System.Data.DbType.DateTime);
-                        expr = $"Timestamp BETWEEN @{p1} AND @{p2}";
-                        return true;
-                    }
-                    if (left != null)
-                    {
-                        var p = GetUniqueParamName("date");
-                        parameters.Add(p, left.Value.UtcDateTime, System.Data.DbType.DateTime);
-                        expr = $"Timestamp >= @{p}";
-                        return true;
-                    }
-                    // right != null
-                    var pr = GetUniqueParamName("date");
-                    parameters.Add(pr, right.Value.UtcDateTime, System.Data.DbType.DateTime);
-                    expr = $"Timestamp <= @{pr}";
-                    return true;
-                }
-                // Not a valid range
-                return false;
+                var op = m.Groups[1].Value;
+                var token = m.Groups[2].Value;
+                var dt = ParseToken(token);
+                if (dt == null)
+                    return false;
+                parameters.Add("Bound", dt.Value.UtcDateTime);
+                expr = $"{timestampColumn} {op} @Bound";
+                return true;
             }
         }
 
-        // Operators: >=, <=, >, <, =
-        var opMatch = MyRegex().Match(input);
-        if (opMatch.Success)
-        {
-            var op = opMatch.Groups[1].Value;
-            var token = opMatch.Groups[2].Value;
-            var dt = ParseToken(token);
-            if (dt == null)
-                return false;
-            var pname = GetUniqueParamName("date");
-            parameters.Add(pname, dt.Value.UtcDateTime, System.Data.DbType.DateTime);
-            expr = $"Timestamp {op} @{pname}";
-            return true;
-        }
-
-        // No operator: treat as equality or single bound >=
-        // If token contains space, maybe user provided a time range like "2024-01-01 12:00"
+        // Exact match (fallback)
         var single = ParseToken(input);
-        if (single != null)
-        {
-            var pname = GetUniqueParamName("date");
-            parameters.Add(pname, single.Value.UtcDateTime, System.Data.DbType.DateTime);
-            expr = $"Timestamp >= @{pname}";
-            return true;
-        }
-
-        return false;
+        if (single == null)
+            return false;
+        parameters.Add("Exact", single.Value.UtcDateTime);
+        expr = $"{timestampColumn} = @Exact";
+        return true;
     }
 
     private string ExtractPropertyExpression(JsonColumn jsonColumn) => $"`{_columnConfig.ColumnMappings[jsonColumn.Column]}`->>'{jsonColumn.Expression}' AS `{jsonColumn.Alias}`";
 
-    public async Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns, SortOptions sortOptions = SortOptions.TimestampDesc)
+    public async Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[]? concatColumns = null, SortOptions sortOptions = SortOptions.TimestampDesc)
     {
-        var (sql, parameters) = BuildQuery(concatColumns, filter, sortOptions, filter.MaxResults > 0 ? filter.MaxResults : 100);
+        var (sql, parameters) = BuildQuery(concatColumns ?? [], filter, sortOptions, filter?.MaxResults > 0 ? filter.MaxResults : 100);
         var results = await QueryInternalAsync(sql, parameters);
         return [.. results];
     }
@@ -282,12 +247,18 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
     {
         var cn = new MySqlConnection(_connectionString);
 
-        var logEntries = await cn.QueryAsync<LogEntry>(sql, parameters);
+        // Query as dynamic to avoid Dapper's strict type mapping, then materialize using configured converter
+        var dynamicResults = await cn.QueryAsync(sql, parameters);
+        var logEntries = dynamicResults
+            .Select(row => _columnConfig.LogEntryMaterializer(row))
+            .Cast<LogEntry>()
+            .ToList();
 
         var utcNow = DateTime.UtcNow;
         foreach (var row in logEntries)
         {
-            var props = JsonSerializer.Deserialize<Dictionary<string, object>>(row.PropertiesJson) ?? [];
+            var propsResult = JsonSerializer.Deserialize<Dictionary<string, object>>(row.PropertiesJson);
+            var props = propsResult ?? new Dictionary<string, object>();
             row.Age = utcNow - row.Timestamp;
             row.Properties = props;
             row.SourceContext = props.GetValueOrDefault("SourceContext")?.ToString();
@@ -297,9 +268,9 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         return logEntries;
     }
 
-    public async Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns)
+    public async Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[]? concatColumns = null)
     {
-        var (sql, parameters) = BuildQuery(concatColumns, new()
+        var (sql, parameters) = BuildQuery(concatColumns ?? [], new()
         {
             Properties = new()
             {
@@ -312,4 +283,15 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
 
     private static System.Text.RegularExpressions.Regex MyRegex() =>
         new(@"^(<=|>=|<|>|=)\s*(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    public static TableConfiguration DefaultTableConfiguration => new(
+        "serilog_events",
+        new Dictionary<LogTableColumns, Column>
+        {
+            [LogTableColumns.Timestamp] = new("_ts", "Timestamp", "TimestampUtc"),
+            [LogTableColumns.Level] = new("Level", null, "Level", MaxLength: 32),
+            [LogTableColumns.MessageTemplate] = new("MessageTemplate", null, "MessageTemplate", MaxLength: 4000),
+            [LogTableColumns.Message] = new("Message", null, "Message", MaxLength: 4000),
+            [LogTableColumns.PropertiesJson] = new("Properties", "PropertiesJson", "PropertiesJson", ColumnType: "longtext")
+        });
 }

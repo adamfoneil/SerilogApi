@@ -63,7 +63,13 @@ public interface ILogQuery
 {
     Task<ErrorInfo[]> RecentErrorsAsync(string? dateTimeExpression = null);
 
-    Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[] concatColumns);
+    /// <summary>
+    /// Query logs for a given requestId, with optional json extract columns
+    /// </summary>
+    Task<LogEntry[]> TraceAsync(string requestId, JsonColumn[]? concatColumns = null);
 
-    Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[] concatColumns, SortOptions sortOptions = SortOptions.TimestampDesc);
+    /// <summary>
+    /// arbitrary log query with optional json extract columns
+    /// </summary>
+    Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[]? concatColumns = null, SortOptions sortOptions = SortOptions.TimestampDesc);
 }

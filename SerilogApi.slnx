@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="Blazor.RCL/Blazor.RCL.csproj" Id="f56a2bdd-496a-497d-886b-6882479d5ca6" />
   <Project Path="DemoApi/DemoApi.csproj" />
   <Project Path="LevelApi.MySql/LevelApi.MySql.csproj" Id="4f9c20de-ae36-4695-adde-ee42aaadc755" />
   <Project Path="LevelApi/LevelApi.csproj" Id="94ced29f-c814-4ed3-ad46-7430b2b05910" />
