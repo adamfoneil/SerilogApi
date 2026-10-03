@@ -15,15 +15,15 @@ public record Column(
     // if specified, match to LogEntry property name, e.g. "PropertiesJson" for the Properties column
     string? Alias = null);
 
-public class ColumnConfiguration(
-    string serilogTableName,
+public class TableConfiguration(
+    string tableName,
     IDictionary<LogTableColumns, Column> columnMappings)
 {
-    public string TableName { get; } = serilogTableName;
+    public string TableName { get; } = tableName;
 
     public Dictionary<LogTableColumns, Column> ColumnMappings { get; } = columnMappings.ToDictionary();
 
-    public static ColumnConfiguration MySqlDefault => new(
+    public static TableConfiguration MySqlDefault => new(
         "serilog",
         new Dictionary<LogTableColumns, Column>
         {

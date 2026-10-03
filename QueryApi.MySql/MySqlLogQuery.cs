@@ -5,10 +5,10 @@ using System.Text.Json;
 
 namespace QueryApi.MySql;
 
-public partial class MySqlLogQuery(string connectionString, ColumnConfiguration columnConfig) : ILogQuery
+public partial class MySqlLogQuery(string connectionString, TableConfiguration columnConfig) : ILogQuery
 {
     private readonly string _connectionString = connectionString;
-    private readonly ColumnConfiguration _columnConfig = columnConfig;
+    private readonly TableConfiguration _columnConfig = columnConfig;
 
     private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria criteria, SortOptions sortOptions, int limit) => 
         (@$"SELECT {ColumnNames(concatExpressions)} 
