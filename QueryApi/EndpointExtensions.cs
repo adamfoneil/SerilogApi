@@ -6,10 +6,6 @@ using Microsoft.AspNetCore.Routing;
 
 namespace SerilogQueryApi;
 
-public record QueryRequest(
-    LogCriteria Criteria,
-    JsonColumn[]? Columns = null);
-
 public static class EndpointExtensions
 {
     public static void MapLogQueryEndpoints(this IEndpointRouteBuilder routeBuilder, AuthorizationPolicy policy)
@@ -32,7 +28,7 @@ public static class EndpointExtensions
         {
             request ??= new QueryRequest(Criteria: new() { MaxResults = 50 });
             
-            var results = await query.QueryAsync(request.Criteria, request.Columns ?? []);
+            var results = await query.QueryAsync(request.Criteria, request.Columns ?? [], SortOptions.TimestampAsc);
             return Results.Ok(results);
         });
     }

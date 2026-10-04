@@ -6,14 +6,6 @@ public enum SortOptions
     TimestampDesc
 }
 
-public record ErrorInfo(
-    // age of most recent RequestId
-    TimeSpan Age,
-    string SourceContext,
-    string MessageTemplate,
-    // most recent RequestIds
-    string[] RequestIds);
-
 public record LogEntry(
     DateTime Timestamp,
     string Level,

@@ -1,4 +1,4 @@
-It should be easier to enable dynamic log level capability to Serilog. Typically, I'll run a production service at a high log level (warning or info) to minimize log ingestion. During an incident, I need to elevate the log detail temporarily. This is possible with Serilog's `LoggingLevelSwitch` but there are few moving pieces you need to make this work. This project brings together some infrastructure to make this easier in your applications.
+It should be easier to enable dynamic log level capability to Serilog. In a high-traffic production service I'll use a high minimum log level (warning) to minimize log ingestion. During an incident, I need to elevate the log detail temporarily. This is possible with Serilog's `LoggingLevelSwitch` but there are few moving pieces you need to make this work. This project brings together some infrastructure to make this easier in your applications.
 
 A secondary purpose of this project is to enable Serilog querying. When you've temporarily elevated log detail, how do you query it? A wealth of off-the-shelf observability solutions for exactly this already exist. Why build another? The reason is that in enterprise settings, observability tools are expensive and hard to justify, or they are gated for beaurocratic reasons. If you're already using a relational database sink with Serilog, querying it by SQL is natural to do, but still rather complex. The goal here therefore is to implement some practical query patterns you can plug into any application.
 
@@ -42,6 +42,25 @@ builder.Host.UseSerilog((_, _, config) =>
 ```csharp
 app.MapLogLevelEndpoints(<auth policy>);
 ```
+
+This maps these [endpoints](LevelApi/EndpointExtensions.cs):
+- GET `/serilog/overrides`
+- PUT `/serilog/debug`
+- PUT `/override/{category:alpha}/{level:alpha}`
+- DELETE `/overrides/remove`
+
+## Query Api
+
+In your startup/Program.cs, add this line after your app is built:
+
+```csharp
+app.MapLogQueryEndpoints(<auth policy>);
+```
+
+This maps these [endpoints](QueryApi/EndpointExtensions.cs):
+- POST `/serilog/query` accepts [QueryRequest](QueryApi/QueryRequest.cs) body
+- POST `/serilog/query/errors` returns an array of recent [ErrorInfo](QueryApi/ErrorInfo.cs)
+- POST `/serilog/trace/{requestId}` returns all entries for a given `requestId`
 
 
 # Source Tour
