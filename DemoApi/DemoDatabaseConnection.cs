@@ -23,6 +23,7 @@ public sealed class DemoDatabaseConnection(string connectionString, MySqlContain
             .WithDatabase("serilogdemo")
             .WithUsername("mysql")
             .WithPassword("mysql")
+            .WithPortBinding(hostPort: 62688, containerPort: 3306)
             .Build();
 
         await container.StartAsync();
