@@ -45,7 +45,7 @@ app.MapLogLevelEndpoints(<auth policy>);
 
 This maps these [endpoints](LevelApi/EndpointExtensions.cs):
 - GET `/serilog/overrides`
-- PUT `/serilog/debug`
+- PUT `/serilog/debug` sets the min log level to Debug for 10 minutes
 - PUT `/override/{category:alpha}/{level:alpha}`
 - DELETE `/overrides/remove`
 
