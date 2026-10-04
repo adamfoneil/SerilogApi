@@ -4,6 +4,8 @@ A secondary purpose of this project is to enable Serilog querying. When you've t
 
 # Usage
 
+See the [DemoApi/Program.cs](DemoApi/Program.cs) to see this in use.
+
 ## Level API
 
 Step-by-step how to implement dynamic log leveling:
