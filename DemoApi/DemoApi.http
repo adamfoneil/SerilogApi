@@ -20,7 +20,9 @@ Content-type: application/json
     "Level":"Information",
     "Properties": {
       "SourceContext":"Microsoft.EntityFrameworkCore.Database.Command"
-    }
+    },
+    "Skip": 0,
+    "Take": 10
   }  
 }
 
