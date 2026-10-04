@@ -26,7 +26,7 @@ public static class EndpointExtensions
 
         grp.MapPost("/", async ([FromServices] ILogQuery query, [FromBody] QueryRequest? request) =>
         {
-            request ??= new QueryRequest(Criteria: new() { MaxResults = 50 });
+            request ??= new QueryRequest(Criteria: new() { Take = 50 });
             
             var results = await query.QueryAsync(request.Criteria, request.Columns ?? [], SortOptions.TimestampAsc);
             return Results.Ok(results);

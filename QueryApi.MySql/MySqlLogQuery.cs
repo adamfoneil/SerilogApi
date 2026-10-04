@@ -10,12 +10,12 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
     private readonly string _connectionString = connectionString;
     private readonly TableConfiguration _columnConfig = columnConfig;
 
-    private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria? criteria, SortOptions sortOptions, int limit) => 
+    private (string Sql, DynamicParameters Parameters) BuildQuery(JsonColumn[] concatExpressions, LogCriteria? criteria, SortOptions sortOptions, int skip, int take) => 
         (@$"SELECT {ColumnNames(concatExpressions)} 
         FROM `{_columnConfig.TableName}` 
         {WhereClause(criteria, out var parameters)} 
         ORDER BY {SortColumn(sortOptions)} 
-        LIMIT {limit}", parameters);
+        LIMIT {take} OFFSET {skip}", parameters);
 
     private string ColumnNames(JsonColumn[] concatExpressions) => 
         string.Join(", ", 
@@ -217,7 +217,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
 
     public async Task<LogEntry[]> QueryAsync(LogCriteria filter, JsonColumn[]? concatColumns = null, SortOptions sortOptions = SortOptions.TimestampDesc)
     {
-        var (sql, parameters) = BuildQuery(concatColumns ?? [], filter, sortOptions, filter?.MaxResults > 0 ? filter.MaxResults : 100);
+        var (sql, parameters) = BuildQuery(concatColumns ?? [], filter, sortOptions, filter?.Skip ?? 0, filter?.Take > 0 ? filter.Take : 100);
         var results = await QueryInternalAsync(sql, parameters);
         return [.. results];
     }
@@ -231,7 +231,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         {
             DateTimeExpression = dateTimeExpression,
             Level = "Error"
-        }, SortOptions.TimestampDesc, 200);
+        }, SortOptions.TimestampDesc, 0, 200);
 
         var logEntries = await QueryInternalAsync(sql, parameters);
 
@@ -276,7 +276,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
             {
                 ["RequestId"] = requestId
             }
-        }, SortOptions.TimestampAsc, 20);
+        }, SortOptions.TimestampAsc, 0, 20);
 
         return [.. await QueryInternalAsync(sql, parameters)];
     }

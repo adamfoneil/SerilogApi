@@ -44,11 +44,9 @@ public class LogCriteria
     /// <summary>
     /// typical structured log properties
     /// </summary>
-    public Dictionary<string, string> Properties { get; set; } = [];
-    /// <summary>
-    /// zero = no limit
-    /// </summary>
-    public int MaxResults { get; set; } = 10;
+    public Dictionary<string, string> Properties { get; set; } = [];    
+    public int Take { get; set; } = 100;
+    public int Skip { get; set; }
 }
 
 public interface ILogQuery
