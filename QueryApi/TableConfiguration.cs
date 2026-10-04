@@ -23,9 +23,7 @@ public record Column(
     // optional max length constraint for string columns
     int? MaxLength = null,
     // optional column type override (e.g., "longtext")
-    string? ColumnType = null,
-    // optional precision for decimal columns
-    (int, int)? Precision = null)
+    string? ColumnType = null)
 {
     /// <summary>
     /// Gets the property name to use for EF Core mapping.
@@ -35,6 +33,9 @@ public record Column(
         PropertyName ?? Alias ?? columnType.ToString();
 }
 
+/// <summary>
+/// describes a serilog logging database table along with optional delegate for describing how to materialize query results to the LogEntry DTO type
+/// </summary>
 public class TableConfiguration(
     string tableName,
     IDictionary<LogTableColumns, Column> columnMappings,

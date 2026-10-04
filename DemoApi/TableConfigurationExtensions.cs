@@ -50,12 +50,6 @@ public static class TableConfigurationExtensions
             {
                 propertyBuilder.HasColumnType(column.ColumnType);
             }
-
-            if (column.Precision.HasValue)
-            {
-                var (precision, scale) = column.Precision.Value;
-                propertyBuilder.HasPrecision(precision, scale);
-            }
         }
     }
 }
