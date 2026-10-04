@@ -1,0 +1,1 @@
+This has a Copilot-generated MySQL Serilog sink. I moved it to its own project in case it might be usable on its own. I'm not sure that it will be due to the dependency on [TableConfiguration](../QueryApi/TableConfiguration.cs)
