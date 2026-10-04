@@ -39,12 +39,28 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
             JsonSerializer.Serialize(
                 logEvent.Properties.ToDictionary(
                     pair => pair.Key,
-                    pair => pair.Value.ToString())));
+                    pair => ExtractPropertyValue(pair.Value))));
 
         if (!_channel.Writer.TryWrite(pending))
         {
             SelfLog.WriteLine("Dropped Serilog event because the MySQL buffer is full.");
         }
+    }
+
+    private static object? ExtractPropertyValue(LogEventPropertyValue value)
+    {
+        return value switch
+        {
+            ScalarValue scalar => scalar.Value,
+            SequenceValue sequence => sequence.Elements.Select(ExtractPropertyValue).ToList(),
+            StructureValue structure => structure.Properties.ToDictionary(
+                p => p.Name,
+                p => ExtractPropertyValue(p.Value)),
+            DictionaryValue dict => dict.Elements.ToDictionary(
+                kvp => kvp.Key.ToString() ?? string.Empty,
+                kvp => ExtractPropertyValue(kvp.Value)),
+            _ => value.ToString()
+        };
     }
 
     public async ValueTask DisposeAsync()
