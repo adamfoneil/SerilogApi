@@ -258,7 +258,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
         foreach (var row in logEntries)
         {
             var propsResult = JsonSerializer.Deserialize<Dictionary<string, object>>(row.PropertiesJson);
-            var props = propsResult ?? new Dictionary<string, object>();
+            var props = propsResult ?? [];
             row.Age = utcNow - row.Timestamp;
             row.Properties = props;
             row.SourceContext = props.GetValueOrDefault("SourceContext")?.ToString();
@@ -292,6 +292,6 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
             [LogTableColumns.Level] = new("Level", null, "Level", MaxLength: 32),
             [LogTableColumns.MessageTemplate] = new("MessageTemplate", null, "MessageTemplate", MaxLength: 4000),
             [LogTableColumns.Message] = new("Message", null, "Message", MaxLength: 4000),
-            [LogTableColumns.PropertiesJson] = new("Properties", "PropertiesJson", "PropertiesJson", ColumnType: "longtext")
+            [LogTableColumns.PropertiesJson] = new("Properties", "PropertiesJson", "PropertiesJson", ColumnType: "json")
         });
 }
