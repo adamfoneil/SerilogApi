@@ -1,0 +1,82 @@
+@page "/"
+@rendermode RenderMode.InteractiveServer
+
+<PageTitle>Home - DemoApi</PageTitle>
+
+<div class="home-container">
+    <h2>Welcome to DemoApi</h2>
+    <p>This application demonstrates Serilog integration with dynamic configuration management.</p>
+
+    <div class="card-grid">
+        <div class="card">
+            <h3>Query Logs</h3>
+            <p>Search and filter Serilog logs in real-time.</p>
+            <a href="/serilog/query" class="btn btn-primary">Open Log Query</a>
+        </div>
+
+        <div class="card">
+            <h3>Manage Log Levels</h3>
+            <p>Temporarily adjust log levels for specific components.</p>
+            <a href="/serilog/levels" class="btn btn-primary">Manage Levels</a>
+        </div>
+
+        <div class="card">
+            <h3>API Documentation</h3>
+            <p>Explore the full OpenAPI specification.</p>
+            <a href="/swagger/ui" target="_blank" class="btn btn-primary">View API Docs</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 2rem;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .card h3 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .card p {
+        color: #666;
+        margin-bottom: 1.5rem;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 8px 16px;
+        background: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .btn:hover {
+        background: #0056b3;
+    }
+</style>

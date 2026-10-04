@@ -1,0 +1,101 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <nav class="flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-heart-fill-fill" aria-hidden="true"></span> Home
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="serilog/query">
+                    <span class="bi bi-search" aria-hidden="true"></span> Query Logs
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="serilog/levels">
+                    <span class="bi bi-sliders" aria-hidden="true"></span> Log Levels
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/swagger/ui" target="_blank">
+                    <span class="bi bi-diagram-3" aria-hidden="true"></span> API Docs
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <h1>DemoApi - Serilog Management</h1>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<style>
+    .page {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 250px;
+        background-color: #f7f7f7;
+        border-right: 1px solid #d0d0d0;
+        min-height: 100vh;
+    }
+
+    .sidebar nav {
+        display: flex;
+        flex-direction: column;
+        padding-top: 1rem;
+    }
+
+    .nav-item {
+        margin-bottom: 0.5rem;
+    }
+
+    .nav-link {
+        display: block;
+        padding: 0.75rem 1rem;
+        color: #0051ba;
+        text-decoration: none;
+        border-radius: 4px;
+    }
+
+    .nav-link:hover {
+        background-color: rgba(0, 81, 186, 0.1);
+    }
+
+    .nav-link.active {
+        background-color: rgba(0, 81, 186, 0.2);
+        color: #0051ba;
+        font-weight: 600;
+    }
+
+    .top-row {
+        background-color: white;
+        border-bottom: 1px solid #d0d0d0;
+        padding: 1rem 0;
+    }
+
+    .content {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    article {
+        flex: 1;
+    }
+</style>

@@ -7,7 +7,7 @@ using Serilog.Debugging;
 using Serilog.Events;
 using SerilogQueryApi;
 
-namespace DemoApi;
+namespace SerilogUtil;
 
 public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
 {

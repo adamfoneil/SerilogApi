@@ -1,5 +1,6 @@
 using DemoApi;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using QueryApi.MySql;
@@ -10,6 +11,7 @@ using Serilog.Events;
 using SerilogLevelApi;
 using SerilogLevelApi.MySql;
 using SerilogQueryApi;
+using SerilogUtil;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,7 +48,23 @@ builder.Services.AddDbContext<DemoDbContext>((services, options) =>
 }, ServiceLifetime.Singleton);
 
 builder.Services.AddSingleton(tableConfiguration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SerilogQueryPolicy", policy =>
+        policy.RequireAssertion(_ => true)); // Allow all for demo
+
+    options.AddPolicy("SerilogLevelPolicy", policy =>
+        policy.RequireAssertion(_ => true)); // Allow all for demo
+});
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddCascadingAuthenticationState();
+
+// Register Blazor UI services
+builder.Services.AddScoped<Blazor.RCL.Services.SerilogQueryService>();
+builder.Services.AddScoped<Blazor.RCL.Services.SerilogLevelService>();
 
 builder.Services.AddHttpLogging(options =>
 {
@@ -75,6 +93,13 @@ builder.Host.UseSerilog((_, _, configuration) =>
 var app = builder.Build();
 
 app.UseHttpLogging();
+
+app.UseRouting();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapRazorComponents<DemoApi.Components.App>()
+    .AddInteractiveServerRenderMode();
 
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar/v1");

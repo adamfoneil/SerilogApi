@@ -1,0 +1,278 @@
+@using SerilogQueryApi
+@using Blazor.RCL.Services
+@rendermode RenderMode.InteractiveServer
+
+<div class="serilog-query-ui">
+    <div class="query-controls">
+        <h3>Serilog Log Query</h3>
+
+        <div class="form-group">
+            <label for="searchText">Search:</label>
+            <input type="text" id="searchText" @bind="SearchText" placeholder="Search logs..." class="form-control" />
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="minLevel">Min Level:</label>
+                <select id="minLevel" @bind="SelectedMinLevel" class="form-control">
+                    <option value="">All</option>
+                    <option value="Verbose">Verbose</option>
+                    <option value="Debug">Debug</option>
+                    <option value="Information">Information</option>
+                    <option value="Warning">Warning</option>
+                    <option value="Error">Error</option>
+                    <option value="Fatal">Fatal</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="maxResults">Max Results:</label>
+                <input type="number" id="maxResults" @bind="MaxResults" min="1" max="1000" class="form-control" />
+            </div>
+        </div>
+
+        <button class="btn btn-primary" @onclick="ExecuteQuery">Search</button>
+        <button class="btn btn-secondary" @onclick="ClearFilters">Clear</button>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="alert alert-info">Loading logs...</div>
+    }
+    else if (ErrorMessage != null)
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+    else if (Logs.Any())
+    {
+        <div class="logs-container">
+            <table class="table table-striped table-sm">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Level</th>
+                        <th>Source Context</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Logs)
+                    {
+                        <tr class="@GetRowClass(log.Level)">
+                            <td>@log.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff")</td>
+                            <td><span class="badge @GetBadgeClass(log.Level)">@log.Level</span></td>
+                            <td><small>@log.SourceContext</small></td>
+                            <td>
+                                <div class="log-message">@log.MessageTemplate</div>
+                                @if (!string.IsNullOrEmpty(log.Exception))
+                                {
+                                    <details class="mt-2">
+                                        <summary class="text-danger">Exception</summary>
+                                        <pre class="text-danger">@log.Exception</pre>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (!IsLoading && SearchExecuted)
+    {
+        <div class="alert alert-info">No logs found matching your criteria.</div>
+    }
+</div>
+
+@code {
+    [Inject]
+    private SerilogQueryService? QueryService { get; set; }
+
+    private string SearchText = "";
+    private string SelectedMinLevel = "";
+    private int MaxResults = 100;
+    private List<LogQueryResult> Logs = new();
+    private bool IsLoading = false;
+    private bool SearchExecuted = false;
+    private string? ErrorMessage;
+
+    private async Task ExecuteQuery()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        SearchExecuted = true;
+
+        try
+        {
+            if (QueryService == null)
+            {
+                ErrorMessage = "Query service not available";
+                return;
+            }
+
+            var results = await QueryService.QueryLogsAsync(new LogQueryRequest
+            {
+                SearchText = SearchText,
+                MinLogLevel = SelectedMinLevel,
+                MaxResults = MaxResults
+            });
+
+            Logs = results.ToList();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error querying logs: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        SearchText = "";
+        SelectedMinLevel = "";
+        MaxResults = 100;
+        Logs.Clear();
+        SearchExecuted = false;
+        ErrorMessage = null;
+    }
+
+    private string GetRowClass(string? level) => level switch
+    {
+        "Fatal" => "table-danger",
+        "Error" => "table-danger",
+        "Warning" => "table-warning",
+        _ => ""
+    };
+
+    private string GetBadgeClass(string? level) => level switch
+    {
+        "Fatal" => "bg-danger",
+        "Error" => "bg-danger",
+        "Warning" => "bg-warning text-dark",
+        "Information" => "bg-info",
+        "Debug" => "bg-secondary",
+        "Verbose" => "bg-dark",
+        _ => "bg-secondary"
+    };
+}
+
+<style>
+    .serilog-query-ui {
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+
+    .query-controls {
+        background: white;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        margin-right: 10px;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #545b62;
+    }
+
+    .logs-container {
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .table {
+        margin-bottom: 0;
+        font-size: 13px;
+    }
+
+    .table thead {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .log-message {
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
+
+    .badge {
+        font-size: 11px;
+        padding: 4px 8px;
+        font-weight: 600;
+    }
+
+    details {
+        cursor: pointer;
+    }
+
+    details summary:hover {
+        text-decoration: underline;
+    }
+
+    pre {
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+</style>

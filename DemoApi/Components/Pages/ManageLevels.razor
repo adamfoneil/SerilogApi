@@ -1,0 +1,25 @@
+@page "/serilog/levels"
+@using Blazor.RCL.Components
+@rendermode RenderMode.InteractiveServer
+
+<PageTitle>Manage Log Levels - DemoApi</PageTitle>
+
+<div class="levels-page">
+    <h2>Dynamic Log Level Management</h2>
+    <p>Adjust log levels for specific components without restarting the application.</p>
+
+    <SerilogUIWrapper PolicyName="@AuthPolicy">
+        <SerilogLevelUI />
+    </SerilogUIWrapper>
+</div>
+
+@code {
+    private string AuthPolicy = "SerilogLevelPolicy";
+}
+
+<style>
+    .levels-page {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+</style>

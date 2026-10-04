@@ -1,0 +1,25 @@
+@page "/serilog/query"
+@using Blazor.RCL.Components
+@rendermode RenderMode.InteractiveServer
+
+<PageTitle>Query Logs - DemoApi</PageTitle>
+
+<div class="query-page">
+    <h2>Serilog Log Query</h2>
+    <p>Search and filter logs captured by your application.</p>
+
+    <SerilogUIWrapper PolicyName="@AuthPolicy">
+        <SerilogQueryUI />
+    </SerilogUIWrapper>
+</div>
+
+@code {
+    private string AuthPolicy = "SerilogQueryPolicy";
+}
+
+<style>
+    .query-page {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+</style>

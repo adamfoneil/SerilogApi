@@ -23,6 +23,7 @@
     <ProjectReference Include="..\LevelApi\LevelApi.csproj" />
     <ProjectReference Include="..\QueryApi.MySql\QueryApi.MySql.csproj" />
     <ProjectReference Include="..\SerilogUtil\SerilogUtil.csproj" />
+    <ProjectReference Include="..\Blazor.RCL\Blazor.RCL.csproj" />
   </ItemGroup>
 
 </Project>
