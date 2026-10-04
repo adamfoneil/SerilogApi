@@ -14,14 +14,9 @@ public record LogLevelOverrideRequest(
     string Level,
     DateTime? ExpiryUtc = null);
 
-public class SerilogLevelService
+public class SerilogLevelService(ILogLevelOverrides overrides)
 {
-    private readonly ILogLevelOverrides _overrides;
-
-    public SerilogLevelService(ILogLevelOverrides overrides)
-    {
-        _overrides = overrides;
-    }
+    private readonly ILogLevelOverrides _overrides = overrides;
 
     public async Task<IEnumerable<LogLevelOverrideDto>> GetActiveOverridesAsync()
     {

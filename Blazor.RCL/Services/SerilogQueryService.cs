@@ -16,14 +16,9 @@ public record LogQueryResult(
     string? RequestId,
     string? Exception);
 
-public class SerilogQueryService
+public class SerilogQueryService(ILogQuery query)
 {
-    private readonly ILogQuery _query;
-
-    public SerilogQueryService(ILogQuery query)
-    {
-        _query = query;
-    }
+    private readonly ILogQuery _query = query;
 
     public async Task<IEnumerable<LogQueryResult>> QueryLogsAsync(LogQueryRequest request)
     {
