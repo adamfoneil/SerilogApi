@@ -39,7 +39,7 @@ await using (var db = new DemoDbContext(dbContextOptions))
     await db.EnsureSerilogTableExistsAsync(tableConfiguration);
 }
 
-builder.Services.AddDbContext<DemoDbContext>((services, options) =>
+builder.Services.AddDbContextFactory<DemoDbContext>((services, options) =>
 {
     options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString));
 }, ServiceLifetime.Singleton);
