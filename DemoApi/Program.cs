@@ -1,6 +1,5 @@
 using DemoApi;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using QueryApi.MySql;
@@ -40,14 +39,13 @@ await using (var db = new DemoDbContext(dbContextOptions))
     await db.EnsureSerilogTableExistsAsync(tableConfiguration);
 }
 
-builder.Services.AddMySqlLogLevelOverrides<DemoDbContext>(database.ConnectionString, levelSwitch);
-
 builder.Services.AddDbContext<DemoDbContext>((services, options) =>
 {
     options.UseMySql(database.ConnectionString, ServerVersion.AutoDetect(database.ConnectionString));
 }, ServiceLifetime.Singleton);
 
-builder.Services.AddSingleton(tableConfiguration);
+builder.Services.AddSingleton<ILogLevelOverrides, MySqlLogLevelOverrides<DemoDbContext>>();
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SerilogQueryPolicy", policy =>
@@ -61,10 +59,6 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
-
-// Register Blazor UI services
-builder.Services.AddScoped<Blazor.RCL.Services.SerilogQueryService>();
-builder.Services.AddScoped<Blazor.RCL.Services.SerilogLevelService>();
 
 builder.Services.AddHttpLogging(options =>
 {

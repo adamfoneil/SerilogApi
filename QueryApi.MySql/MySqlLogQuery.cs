@@ -292,6 +292,7 @@ public partial class MySqlLogQuery(string connectionString, TableConfiguration c
             [LogTableColumns.Level] = new("Level", null, "Level", MaxLength: 32),
             [LogTableColumns.MessageTemplate] = new("MessageTemplate", null, "MessageTemplate", MaxLength: 4000),
             [LogTableColumns.Message] = new("Message", null, "Message", MaxLength: 4000),
-            [LogTableColumns.PropertiesJson] = new("Properties", "PropertiesJson", "PropertiesJson", ColumnType: "json")
+            [LogTableColumns.PropertiesJson] = new("Properties", "PropertiesJson", "PropertiesJson", ColumnType: "json"),
+            [LogTableColumns.Exception] = new("Exception", null, "Exception", ColumnType: "longtext")
         });
 }

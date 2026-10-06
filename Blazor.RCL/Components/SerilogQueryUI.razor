@@ -1,4 +1,5 @@
-@using Blazor.RCL.Services
+@using SerilogQueryApi
+@inject ILogQuery QueryService
 @rendermode RenderMode.InteractiveServer
 
 <div class="serilog-query-ui">
@@ -49,6 +50,7 @@
                 <thead>
                     <tr>
                         <th>Timestamp</th>
+                        <th>Age</th>
                         <th>Level</th>
                         <th>Source Context</th>
                         <th>Message</th>
@@ -58,7 +60,8 @@
                     @foreach (var log in Logs)
                     {
                         <tr class="@GetRowClass(log.Level)">
-                            <td>@log.Timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff")</td>
+                            <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</td>
+                            <td><small>@log.Age.ToString(@"hh\:mm\:ss")</small></td>
                             <td><span class="badge @GetBadgeClass(log.Level)">@log.Level</span></td>
                             <td><small>@log.SourceContext</small></td>
                             <td>
@@ -84,13 +87,10 @@
 </div>
 
 @code {
-    [Inject]
-    private SerilogQueryService? QueryService { get; set; }
-
     private string SearchText = "";
     private string SelectedMinLevel = "";
     private int MaxResults = 100;
-    private List<LogQueryResult> Logs = new();
+    private List<LogEntry> Logs = new();
     private bool IsLoading = false;
     private bool SearchExecuted = false;
     private string? ErrorMessage;
@@ -109,14 +109,14 @@
                 return;
             }
 
-            var results = await QueryService.QueryLogsAsync(new LogQueryRequest
+            var criteria = new LogCriteria
             {
-                SearchText = SearchText,
-                MinLogLevel = SelectedMinLevel,
-                MaxResults = MaxResults
-            });
+                MessageContains = SearchText,
+                Level = SelectedMinLevel,
+                Take = MaxResults
+            };
 
-            Logs = results.ToList();
+            Logs = (await QueryService.QueryAsync(criteria)).ToList();
         }
         catch (Exception ex)
         {

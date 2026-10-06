@@ -11,12 +11,13 @@ public record LogEntry(
     string Level,
     string MessageTemplate,
     string Message,
-    string PropertiesJson)
+    string PropertiesJson,
+    string? Exception)
 {
     public Dictionary<string, object> Properties { get; set; } = [];
     public TimeSpan Age { get; set; }
     public string? SourceContext { get; set; }
-    public string? RequestId { get; set; }
+    public string? RequestId { get; set; }    
 }
 
 public record JsonColumn(

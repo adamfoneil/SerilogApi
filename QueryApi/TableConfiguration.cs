@@ -6,7 +6,8 @@ public enum LogTableColumns
     Level,    
     MessageTemplate,
     Message,
-    PropertiesJson
+    PropertiesJson,
+    Exception
 }
 
 /// <summary>
@@ -72,7 +73,8 @@ public class TableConfiguration(
             Level: row.Level?.ToString() ?? string.Empty,
             MessageTemplate: row.MessageTemplate?.ToString() ?? string.Empty,
             Message: row.Message?.ToString() ?? string.Empty,
-            PropertiesJson: row.PropertiesJson?.ToString() ?? string.Empty
+            PropertiesJson: row.PropertiesJson?.ToString() ?? string.Empty,
+            Exception: row.Exception?.ToString()
         );
     }
 }

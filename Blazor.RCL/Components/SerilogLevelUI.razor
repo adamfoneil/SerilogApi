@@ -1,4 +1,6 @@
-@using Blazor.RCL.Services
+@using SerilogLevelApi
+@using Serilog.Events
+@inject ILogLevelOverrides LevelService
 @rendermode RenderMode.InteractiveServer
 
 <div class="serilog-level-ui">
@@ -58,14 +60,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var ovr in Overrides)
+                    @foreach (var kvp in Overrides)
                     {
                         <tr>
-                            <td>@ovr.Name</td>
-                            <td><span class="badge @GetBadgeClass(ovr.Level)">@ovr.Level</span></td>
-                            <td>@ovr.ExpiryUtc?.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@kvp.Key</td>
+                            <td><span class="badge @GetBadgeClass(kvp.Value.Level.ToString())">@kvp.Value.Level</span></td>
+                            <td>@kvp.Value.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td>
-                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteOverride(ovr.Id)">Remove</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteOverride(kvp.Key)">Remove</button>
                             </td>
                         </tr>
                     }
@@ -76,13 +78,10 @@
 </div>
 
 @code {
-    [Inject]
-    private SerilogLevelService? LevelService { get; set; }
-
     private string ComponentName = "";
     private string SelectedLogLevel = "Information";
     private int ExpiryMinutes = 10;
-    private List<LogLevelOverrideDto> Overrides = new();
+    private Dictionary<string, LogLevelOverride> Overrides = new();
     private bool IsLoading = false;
     private string? SuccessMessage;
     private string? ErrorMessage;
@@ -98,7 +97,7 @@
         {
             if (LevelService == null) return;
 
-            Overrides = (await LevelService.GetActiveOverridesAsync()).ToList();
+            Overrides = await LevelService.GetAsync();
         }
         catch (Exception ex)
         {
@@ -126,12 +125,16 @@
                 return;
             }
 
-            await LevelService.SetLogLevelOverrideAsync(new LogLevelOverrideRequest(
-                ComponentName,
-                SelectedLogLevel,
-                DateTime.UtcNow.AddMinutes(ExpiryMinutes)));
+            if (!Enum.TryParse<LogEventLevel>(SelectedLogLevel, out var level))
+            {
+                ErrorMessage = $"Invalid log level: {SelectedLogLevel}";
+                return;
+            }
 
-            SuccessMessage = $"Override applied for '{ComponentName}' until {DateTime.UtcNow.AddMinutes(ExpiryMinutes):yyyy-MM-dd HH:mm:ss}";
+            var expiresAfter = TimeSpan.FromMinutes(ExpiryMinutes);
+            await LevelService.SetAsync(ComponentName, level, expiresAfter);
+
+            SuccessMessage = $"Override applied for '{ComponentName}' for {ExpiryMinutes} minutes";
             ClearForm();
             await LoadOverrides();
         }
@@ -145,7 +148,7 @@
         }
     }
 
-    private async Task DeleteOverride(int id)
+    private async Task DeleteOverride(string key)
     {
         IsLoading = true;
         ErrorMessage = null;
@@ -159,7 +162,7 @@
                 return;
             }
 
-            await LevelService.DeleteLogLevelOverrideAsync(id);
+            await LevelService.RemoveAsync(key);
             SuccessMessage = "Override removed";
             await LoadOverrides();
         }
