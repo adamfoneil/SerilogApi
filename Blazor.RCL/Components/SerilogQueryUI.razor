@@ -63,7 +63,7 @@
                             <td><span class="badge @GetBadgeClass(log.Level)">@log.Level</span></td>
                             <td><small>@log.SourceContext</small></td>
                             <td>
-                                <div class="log-message">@log.MessageTemplate</div>
+                                <div class="log-message">@log.Message</div>
                                 @if (!string.IsNullOrEmpty(log.Exception))
                                 {
                                     <details class="mt-2">
