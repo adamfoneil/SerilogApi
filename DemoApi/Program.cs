@@ -98,6 +98,8 @@ app.UseRouting();
 app.UseAuthorization();
 app.UseAntiforgery();
 
+app.MapStaticAssets();
+
 app.MapRazorComponents<DemoApi.Components.App>()
     .AddInteractiveServerRenderMode();
 
