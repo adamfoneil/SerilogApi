@@ -138,6 +138,7 @@ public sealed class MySqlLogSink : ILogEventSink, IAsyncDisposable
                         LogTableColumns.Message => logEvent.Message,
                         LogTableColumns.MessageTemplate => logEvent.MessageTemplate,
                         LogTableColumns.PropertiesJson => logEvent.PropertiesJson,
+                        LogTableColumns.Exception => logEvent.Exception,
                         _ => throw new InvalidOperationException($"Unknown column type: {col}")
                     };
 
