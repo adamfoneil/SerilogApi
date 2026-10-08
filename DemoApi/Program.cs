@@ -20,7 +20,7 @@ builder.Services.AddSingleton(database);
 
 var tableConfiguration = MySqlLogQuery.DefaultTableConfiguration;
 
-builder.Services.AddSerilogQuery(database.ConnectionString, tableConfiguration);
+builder.Services.AddMySqlSerilogQuery(database.ConnectionString, tableConfiguration);
 
 // custom Serilog sink
 var mySqlLogSink = new MySqlLogSink(database.ConnectionString, tableConfiguration);
