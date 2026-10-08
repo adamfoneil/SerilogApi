@@ -39,7 +39,7 @@ public record Column(
 /// </summary>
 public class TableConfiguration(
     string tableName,
-    IDictionary<LogTableColumns, Column> columnMappings,
+    Dictionary<LogTableColumns, Column> columnMappings,
     Func<dynamic, LogEntry>? logEntryMaterializer = null)
 {
     public string TableName { get; } = tableName;
